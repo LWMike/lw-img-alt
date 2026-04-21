@@ -1,0 +1,29 @@
+{
+  "recommendations": [
+    // AI Coding
+    "github.copilot",
+    "github.copilot-chat",
+
+    // Git & GitHub
+    "eamodio.gitlens",
+    "github.vscode-pull-request-github",
+
+    // Code Quality
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "usernamehw.errorlens",
+
+    // Productivity
+    "alefragnani.project-manager",
+    "gruntfuggly.todo-tree",
+    "rangav.vscode-thunder-client",
+    "christian-kohler.path-intellisense",
+    "mikestead.dotenv",
+
+    // TypeScript / Node
+    "yoavbls.pretty-ts-errors",
+
+    // Markdown
+    "yzhang.markdown-all-in-one"
+  ]
+}

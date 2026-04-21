@@ -1,0 +1,16 @@
+{
+  "name": "project-name",
+  "version": "0.1.0",
+  "private": true,
+  "description": "",
+  "scripts": {
+    "dev": "echo \"Add your dev server command here\"",
+    "build": "echo \"Add your build command here\"",
+    "start": "echo \"Add your start command here\"",
+    "test": "jest",
+    "lint": "eslint . && prettier --check .",
+    "lint:fix": "eslint --fix . && prettier --write .",
+    "prepare": "echo \"Add husky install if using git hooks\""
+  },
+  "devDependencies": {}
+}
