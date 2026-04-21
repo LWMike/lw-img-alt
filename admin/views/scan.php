@@ -1,0 +1,326 @@
+<?php
+/**
+ * Scan screen — lists image attachments missing alt text.
+ *
+ * Variables provided by LWIA_Admin::render_scan():
+ *   $rows          object[]  Scanner result rows for current page.
+ *   $total         int       Total missing-alt attachments matching filters.
+ *   $lib_total     int       Total image attachments in the library.
+ *   $total_pages   int       Total pages for pagination.
+ *   $current_page  int       Current page number.
+ *   $per_page      int       Results per page.
+ *   $base_url      string    Filter-preserving base URL (no 'paged' param).
+ *   $filter_attach string    Current attachment filter value.
+ *   $filter_date_f string    Current date_from filter value.
+ *   $filter_date_t string    Current date_to filter value.
+ *   $filter_mime   string    Current mime_type filter value.
+ *
+ * @package LW_Image_Alt
+ */
+
+defined( 'ABSPATH' ) || exit;
+?>
+<div class="wrap">
+
+	<h1 class="wp-heading-inline"><?php esc_html_e( 'Image Alt Text', 'lw-img-alt' ); ?></h1>
+	<hr class="wp-header-end">
+
+	<?php
+	// -------------------------------------------------------------------------
+	// Filter form
+	// -------------------------------------------------------------------------
+	?>
+	<form method="get" class="lwia-filters">
+		<input type="hidden" name="page" value="lw-img-alt">
+
+		<label for="lwia-filter-attachment" class="screen-reader-text">
+			<?php esc_html_e( 'Filter by attachment status', 'lw-img-alt' ); ?>
+		</label>
+		<select id="lwia-filter-attachment" name="attachment">
+			<option value="all"        <?php selected( $filter_attach, 'all' ); ?>><?php esc_html_e( 'All images', 'lw-img-alt' ); ?></option>
+			<option value="attached"   <?php selected( $filter_attach, 'attached' ); ?>><?php esc_html_e( 'Attached', 'lw-img-alt' ); ?></option>
+			<option value="unattached" <?php selected( $filter_attach, 'unattached' ); ?>><?php esc_html_e( 'Unattached', 'lw-img-alt' ); ?></option>
+		</select>
+
+		<label for="lwia-filter-mime" class="screen-reader-text">
+			<?php esc_html_e( 'Filter by file type', 'lw-img-alt' ); ?>
+		</label>
+		<select id="lwia-filter-mime" name="mime_type">
+			<option value="all"        <?php selected( $filter_mime, 'all' ); ?>><?php esc_html_e( 'All types', 'lw-img-alt' ); ?></option>
+			<option value="image/jpeg" <?php selected( $filter_mime, 'image/jpeg' ); ?>>JPEG</option>
+			<option value="image/png"  <?php selected( $filter_mime, 'image/png' ); ?>>PNG</option>
+			<option value="image/webp" <?php selected( $filter_mime, 'image/webp' ); ?>>WebP</option>
+			<option value="image/gif"  <?php selected( $filter_mime, 'image/gif' ); ?>>GIF</option>
+			<option value="image/avif" <?php selected( $filter_mime, 'image/avif' ); ?>>AVIF</option>
+		</select>
+
+		<label for="lwia-filter-date-from" class="lwia-label-inline">
+			<?php esc_html_e( 'From', 'lw-img-alt' ); ?>
+		</label>
+		<input
+			type="date"
+			id="lwia-filter-date-from"
+			name="date_from"
+			value="<?php echo esc_attr( $filter_date_f ); ?>"
+		>
+
+		<label for="lwia-filter-date-to" class="lwia-label-inline">
+			<?php esc_html_e( 'To', 'lw-img-alt' ); ?>
+		</label>
+		<input
+			type="date"
+			id="lwia-filter-date-to"
+			name="date_to"
+			value="<?php echo esc_attr( $filter_date_t ); ?>"
+		>
+
+		<?php submit_button( __( 'Scan', 'lw-img-alt' ), 'primary', 'lwia-filter-submit', false ); ?>
+
+		<?php if ( $filter_attach !== 'all' || $filter_date_f || $filter_date_t || $filter_mime !== 'all' ) : ?>
+			<a href="<?php echo esc_url( admin_url( 'admin.php?page=lw-img-alt' ) ); ?>" class="button">
+				<?php esc_html_e( 'Clear filters', 'lw-img-alt' ); ?>
+			</a>
+		<?php endif; ?>
+
+		<?php
+		// Export CSV — links to CSV export action (implemented in a later step).
+		$export_url = wp_nonce_url(
+			add_query_arg(
+				array_filter(
+					array(
+						'page'       => 'lw-img-alt',
+						'action'     => 'lwia_export_csv',
+						'attachment' => ( 'all' !== $filter_attach ) ? $filter_attach : false,
+						'date_from'  => $filter_date_f ?: false,
+						'date_to'    => $filter_date_t ?: false,
+						'mime_type'  => ( 'all' !== $filter_mime ) ? $filter_mime : false,
+					)
+				),
+				admin_url( 'admin.php' )
+			),
+			'lwia_export_csv'
+		);
+		?>
+		<a href="<?php echo esc_url( $export_url ); ?>" class="button button-secondary lwia-export-btn">
+			<?php esc_html_e( 'Export CSV', 'lw-img-alt' ); ?>
+		</a>
+	</form>
+
+	<?php
+	// -------------------------------------------------------------------------
+	// Summary
+	// -------------------------------------------------------------------------
+	?>
+	<p
+		class="lwia-summary"
+		id="lwia-total-count"
+		data-count="<?php echo esc_attr( (string) $total ); ?>"
+	>
+		<?php
+		if ( 0 === $total ) {
+			echo esc_html__( 'No images missing alt text — great work!', 'lw-img-alt' );
+		} elseif ( 1 === $total ) {
+			printf(
+				/* translators: %d: total image attachments in library */
+				esc_html__( '1 image missing alt text (of %d total in library)', 'lw-img-alt' ),
+				(int) $lib_total
+			);
+		} else {
+			printf(
+				/* translators: 1: count missing alt, 2: total images in library */
+				esc_html__( '%1$d images missing alt text (of %2$d total in library)', 'lw-img-alt' ),
+				(int) $total,
+				(int) $lib_total
+			);
+		}
+		?>
+	</p>
+
+	<?php if ( 0 === $total ) : ?>
+
+		<div class="lwia-empty-state notice notice-success">
+			<p><?php esc_html_e( 'All images in this library have alt text. Nothing to do here.', 'lw-img-alt' ); ?></p>
+		</div>
+
+	<?php elseif ( empty( $rows ) ) : ?>
+
+		<?php // Edge case: filters active or paged past last page. ?>
+		<div class="notice notice-warning inline">
+			<p>
+				<?php esc_html_e( 'No results on this page.', 'lw-img-alt' ); ?>
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=lw-img-alt' ) ); ?>">
+					<?php esc_html_e( 'Back to page 1', 'lw-img-alt' ); ?>
+				</a>
+			</p>
+		</div>
+
+	<?php else : ?>
+
+		<?php
+		// -------------------------------------------------------------------------
+		// Top pagination
+		// -------------------------------------------------------------------------
+		$pagination = paginate_links(
+			array(
+				'base'      => esc_url_raw( add_query_arg( 'paged', '%#%', $base_url ) ),
+				'format'    => '',
+				'current'   => $current_page,
+				'total'     => $total_pages,
+				'prev_text' => '&laquo; ' . esc_html__( 'Previous', 'lw-img-alt' ),
+				'next_text' => esc_html__( 'Next', 'lw-img-alt' ) . ' &raquo;',
+				'type'      => 'plain',
+			)
+		);
+		?>
+
+		<?php if ( $pagination ) : ?>
+		<div class="tablenav top">
+			<div class="tablenav-pages">
+				<span class="displaying-num">
+					<?php
+					printf(
+						/* translators: %d: total items */
+						esc_html( _n( '%d item', '%d items', $total, 'lw-img-alt' ) ),
+						(int) $total
+					);
+					?>
+				</span>
+				<?php
+				// paginate_links() returns pre-escaped HTML with only safe markup (<a>, <span>).
+				// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+				echo $pagination;
+				?>
+			</div>
+		</div>
+		<?php endif; ?>
+
+		<?php
+		// -------------------------------------------------------------------------
+		// Results table
+		// -------------------------------------------------------------------------
+		?>
+		<table class="wp-list-table widefat fixed striped lwia-scan-table">
+			<thead>
+				<tr>
+					<th scope="col" class="lwia-col-thumb column-thumb"><?php esc_html_e( 'Preview', 'lw-img-alt' ); ?></th>
+					<th scope="col" class="lwia-col-filename column-primary"><?php esc_html_e( 'Filename', 'lw-img-alt' ); ?></th>
+					<th scope="col" class="lwia-col-date"><?php esc_html_e( 'Uploaded', 'lw-img-alt' ); ?></th>
+					<th scope="col" class="lwia-col-attached"><?php esc_html_e( 'Attached to', 'lw-img-alt' ); ?></th>
+					<th scope="col" class="lwia-col-type"><?php esc_html_e( 'Type', 'lw-img-alt' ); ?></th>
+					<th scope="col" class="lwia-col-dims"><?php esc_html_e( 'Dimensions', 'lw-img-alt' ); ?></th>
+					<th scope="col" class="lwia-col-size"><?php esc_html_e( 'Size', 'lw-img-alt' ); ?></th>
+					<th scope="col" class="lwia-col-alt"><?php esc_html_e( 'Alt text', 'lw-img-alt' ); ?></th>
+				</tr>
+			</thead>
+			<tbody>
+				<?php foreach ( $rows as $row ) :
+					$attachment_id = (int) $row->ID;
+					$meta          = maybe_unserialize( get_post_meta( $attachment_id, '_wp_attachment_metadata', true ) );
+					$width         = is_array( $meta ) ? ( $meta['width']  ?? '' ) : '';
+					$height        = is_array( $meta ) ? ( $meta['height'] ?? '' ) : '';
+					$filesize      = is_array( $meta ) ? ( $meta['filesize'] ?? 0 ) : 0;
+					$edit_url      = get_edit_post_link( $attachment_id );
+					$filename      = basename( $row->guid );
+					$date          = mysql2date( get_option( 'date_format' ), $row->post_date );
+				?>
+				<tr data-attachment-id="<?php echo esc_attr( (string) $attachment_id ); ?>">
+
+					<td class="lwia-col-thumb column-thumb">
+						<?php echo wp_get_attachment_image( $attachment_id, array( 50, 50 ), false, array( 'class' => 'lwia-thumb-img' ) ); ?>
+					</td>
+
+					<td class="lwia-col-filename column-primary">
+						<strong>
+							<?php if ( $edit_url ) : ?>
+								<a href="<?php echo esc_url( $edit_url ); ?>">
+									<?php echo esc_html( $filename ); ?>
+								</a>
+							<?php else : ?>
+								<?php echo esc_html( $filename ); ?>
+							<?php endif; ?>
+						</strong>
+					</td>
+
+					<td class="lwia-col-date">
+						<?php echo esc_html( (string) $date ); ?>
+					</td>
+
+					<td class="lwia-col-attached">
+						<?php if ( $row->post_parent ) :
+							$parent = get_post( $row->post_parent );
+							if ( $parent ) :
+								$parent_edit = get_edit_post_link( $parent->ID );
+						?>
+							<?php if ( $parent_edit ) : ?>
+								<a href="<?php echo esc_url( $parent_edit ); ?>">
+									<?php echo esc_html( get_the_title( $parent ) ); ?>
+								</a>
+							<?php else : ?>
+								<?php echo esc_html( get_the_title( $parent ) ); ?>
+							<?php endif; ?>
+						<?php else : ?>
+							&mdash;
+						<?php endif; ?>
+						<?php else : ?>
+							<span class="lwia-unattached"><?php esc_html_e( 'Unattached', 'lw-img-alt' ); ?></span>
+						<?php endif; ?>
+					</td>
+
+					<td class="lwia-col-type">
+						<?php echo esc_html( $row->post_mime_type ); ?>
+					</td>
+
+					<td class="lwia-col-dims">
+						<?php if ( $width && $height ) : ?>
+							<?php echo esc_html( $width ) . ' &times; ' . esc_html( $height ); ?>
+						<?php else : ?>
+							&mdash;
+						<?php endif; ?>
+					</td>
+
+					<td class="lwia-col-size">
+						<?php echo $filesize ? esc_html( size_format( (int) $filesize ) ) : '&mdash;'; ?>
+					</td>
+
+					<td class="lwia-col-alt">
+						<div class="lwia-inline-edit-wrap">
+							<input
+								type="text"
+								class="lwia-alt-input"
+								value=""
+								placeholder="<?php echo esc_attr__( 'Enter alt text\u2026', 'lw-img-alt' ); ?>"
+								maxlength="125"
+								aria-label="<?php echo esc_attr__( 'Alt text for this image', 'lw-img-alt' ); ?>"
+							>
+							<button type="button" class="button button-small lwia-save-btn">
+								<?php esc_html_e( 'Save', 'lw-img-alt' ); ?>
+							</button>
+							<span class="lwia-spinner spinner" aria-hidden="true"></span>
+							<span class="lwia-status" aria-live="polite"></span>
+						</div>
+					</td>
+
+				</tr>
+				<?php endforeach; ?>
+			</tbody>
+		</table>
+
+		<?php
+		// -------------------------------------------------------------------------
+		// Bottom pagination
+		// -------------------------------------------------------------------------
+		?>
+		<?php if ( $pagination ) : ?>
+		<div class="tablenav bottom">
+			<div class="tablenav-pages">
+				<?php
+				// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+				echo $pagination;
+				?>
+			</div>
+		</div>
+		<?php endif; ?>
+
+	<?php endif; ?>
+
+</div><!-- .wrap -->

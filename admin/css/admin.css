@@ -1,0 +1,187 @@
+/**
+ * LW Image Alt — admin styles.
+ * Scoped to plugin screens only (assets are enqueued conditionally in class-admin.php).
+ */
+
+/* ---- Filter bar ---- */
+
+.lwia-filters {
+	margin: 1em 0;
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.lwia-filters select,
+.lwia-filters input[type="date"] {
+	height: 30px;
+	line-height: 28px;
+}
+
+.lwia-label-inline {
+	font-size: 13px;
+}
+
+.lwia-export-btn {
+	margin-left: auto;
+}
+
+/* ---- Summary line ---- */
+
+.lwia-summary {
+	font-size: 13px;
+	color: #50575e;
+	margin: 0.5em 0 1em;
+}
+
+/* ---- Scan table ---- */
+
+.lwia-scan-table .lwia-col-thumb  { width: 66px; }
+.lwia-scan-table .lwia-col-date   { width: 110px; }
+.lwia-scan-table .lwia-col-type   { width: 100px; }
+.lwia-scan-table .lwia-col-dims   { width: 100px; }
+.lwia-scan-table .lwia-col-size   { width: 72px; }
+.lwia-scan-table .lwia-col-alt    { width: 340px; }
+
+.lwia-thumb-img {
+	width: 50px;
+	height: 50px;
+	object-fit: cover;
+	display: block;
+}
+
+.lwia-unattached {
+	color: #787c82;
+	font-style: italic;
+}
+
+/* ---- Inline edit ---- */
+
+.lwia-inline-edit-wrap {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.lwia-alt-input {
+	flex: 1;
+	max-width: 220px;
+}
+
+/* Override WP's float on .spinner so it sits inline. */
+.lwia-spinner.spinner {
+	float: none;
+	margin: 0;
+	vertical-align: middle;
+}
+
+/* ---- Status badge ---- */
+
+.lwia-status {
+	font-size: 12px;
+	font-style: italic;
+	white-space: nowrap;
+}
+
+.lwia-status.lwia-success {
+	color: #00a32a;
+}
+
+.lwia-status.lwia-error {
+	color: #d63638;
+}
+
+/* ---- Empty state ---- */
+
+.lwia-empty-state.notice {
+	margin-top: 1em;
+}
+
+/* ---- Import: progress bar ---- */
+
+.lwia-progress-bar-wrap {
+	width: 100%;
+	max-width: 500px;
+	background: #dcdcde;
+	border-radius: 3px;
+	height: 20px;
+	margin: 12px 0 6px;
+	overflow: hidden;
+}
+
+.lwia-progress-bar {
+	height: 100%;
+	background: #2271b1; /* WP admin blue */
+	border-radius: 3px;
+	transition: width 0.25s ease;
+	min-width: 0;
+}
+
+#lwia-progress-label {
+	font-size: 13px;
+	color: #50575e;
+	margin: 0 0 12px;
+}
+
+/* ---- Import: preview table status colours ---- */
+
+tr.lwia-row-status-error   { background: #fce8e8; }
+tr.lwia-row-status-warn    { background: #fffbe5; }
+tr.lwia-row-status-skip    { opacity: 0.6; }
+
+.lwia-status-badge {
+	display: inline-block;
+	padding: 2px 6px;
+	border-radius: 3px;
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+}
+
+.lwia-status-ok    { background: #d8f5e1; color: #00622a; }
+.lwia-status-warn  { background: #fef3cd; color: #7a5c00; }
+.lwia-status-skip  { background: #f0f0f1; color: #646970; }
+.lwia-status-error { background: #fce8e8; color: #8b0000; }
+
+/* ---- Import stats summary ---- */
+
+.lwia-import-stats.notice {
+	margin-bottom: 1em;
+}
+
+.lwia-stat-ok    { color: #00622a; font-weight: 600; }
+.lwia-stat-skip  { color: #646970; font-weight: 600; }
+.lwia-stat-error { color: #8b0000; font-weight: 600; }
+
+/* ---- Log / Undo: source badge ---- */
+
+.lwia-source-badge {
+	display: inline-block;
+	padding: 2px 6px;
+	border-radius: 3px;
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+}
+
+.lwia-source-manual { background: #e5f5fb; color: #00548e; }
+.lwia-source-csv    { background: #e8f5e9; color: #1b5e20; }
+.lwia-source-batch  { background: #e8f5e9; color: #1b5e20; }
+.lwia-source-undo   { background: #fce8e8; color: #8b0000; }
+
+/* ---- Log: truncate long alt text cells ---- */
+
+.lwia-log-table .lwia-log-alt {
+	max-width: 200px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* ---- Undo: form inline with table cell ---- */
+
+.lwia-undo-form {
+	margin: 0;
+}
