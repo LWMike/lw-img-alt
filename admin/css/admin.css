@@ -5,48 +5,52 @@
 
 /* ---- Filter bar ---- */
 
-.lwia-filters {
-	margin: 1em 0;
+.lwia-filter-row {
 	display: flex;
-	align-items: center;
+	align-items: flex-end;
+	gap: 12px;
 	flex-wrap: wrap;
-	gap: 6px;
+	margin: 16px 0 12px;
 }
 
-.lwia-filters select,
-.lwia-filters input[type="date"] {
-	height: 30px;
-	line-height: 28px;
-}
-
-.lwia-filter-label {
+.lwia-filter-prefix {
 	font-size: 13px;
 	font-weight: 600;
-	margin-right: 2px;
+	padding-bottom: 8px; /* vertically centres with bottom of inputs */
 }
 
-/* Visible label above a filter control */
-.lwia-filter-group {
-	display: inline-flex;
+.lwia-filter-field {
+	display: flex;
 	flex-direction: column;
-	gap: 2px;
+	gap: 4px;
 }
 
-.lwia-filter-group-label {
+.lwia-filter-field label {
 	font-size: 11px;
 	font-weight: 600;
 	text-transform: uppercase;
-	letter-spacing: 0.03em;
+	letter-spacing: 0.04em;
 	color: #50575e;
 	line-height: 1;
 }
 
-.lwia-label-inline {
-	font-size: 13px;
+.lwia-filter-field select,
+.lwia-filter-field input[type="date"] {
+	height: 30px;
+	line-height: 28px;
 }
 
-.lwia-export-btn {
+.lwia-filter-actions {
+	display: flex;
+	gap: 8px;
 	margin-left: auto;
+}
+
+@media (max-width: 960px) {
+	.lwia-filter-actions {
+		margin-left: 0;
+		width: 100%;
+	}
 }
 
 /* ---- Summary line ---- */
@@ -100,7 +104,15 @@
 	white-space: nowrap;
 }
 
-/* ---- Inline edit — no save button, auto-save ---- */
+/* ---- Helper text above scan table ---- */
+
+.lwia-helper-text {
+	color: #50575e;
+	font-size: 13px;
+	margin: 4px 0 12px;
+}
+
+/* ---- Inline edit — Save button + autosave fallback ---- */
 
 .lwia-inline-edit-wrap {
 	display: flex;
@@ -113,6 +125,11 @@
 	min-width: 0;
 }
 
+.lwia-row-save {
+	flex-shrink: 0;
+	min-width: 54px;
+}
+
 /* Override WP's float on .spinner so it sits inline */
 .lwia-spinner.spinner {
 	float: none;
@@ -121,31 +138,36 @@
 	flex-shrink: 0;
 }
 
-/* Tick / cross indicator after auto-save */
-.lwia-indicator {
-	font-size: 16px;
-	line-height: 1;
+/* Success / error indicator after save */
+.lwia-save-indicator {
+	display: inline-block;
 	flex-shrink: 0;
-	display: none;
+	font-size: 18px;
+	line-height: 1;
+	opacity: 0;
+	transition: opacity 0.3s;
 }
 
-.lwia-indicator.is-saved {
-	display: inline;
+.lwia-save-indicator.is-success {
 	color: #00a32a;
+	opacity: 1;
 }
 
-.lwia-indicator.is-saved::before {
+.lwia-save-indicator.is-success::before {
 	content: "✓";
 }
 
-.lwia-indicator.is-error {
-	display: inline;
+.lwia-save-indicator.is-error {
 	color: #d63638;
-	cursor: help;
+	opacity: 1;
 }
 
-.lwia-indicator.is-error::before {
+.lwia-save-indicator.is-error::before {
 	content: "✗";
+}
+
+.lwia-save-indicator.is-fading {
+	opacity: 0;
 }
 
 /* Screen-reader-only status (aria-live) */

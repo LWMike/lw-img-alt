@@ -21,30 +21,44 @@
 	'use strict';
 
 	// =========================================================================
-	// Scan screen — auto-save inline edit
+	// Scan screen — Save button with dirty-state tracking + autosave fallback
 	// =========================================================================
 
-	// Track original value when the user focuses the input.
-	$( document ).on( 'focus', '.lwia-alt-input', function () {
-		$( this ).data( 'focus-val', $( this ).val() );
-	} );
+	// Enable/disable Save button as the user types; clear any stale error indicator.
+	$( document ).on( 'input', '.lwia-alt-input', function () {
+		var $input    = $( this );
+		var $wrap     = $input.closest( '.lwia-inline-edit-wrap' );
+		var $btn      = $wrap.find( '.lwia-row-save' );
+		var $saveInd  = $wrap.find( '.lwia-save-indicator' );
+		var dirty     = $input.val() !== ( $input.data( 'original-alt' ) || '' );
 
-	// Auto-save on blur if value changed.
-	$( document ).on( 'blur', '.lwia-alt-input', function () {
-		var $input = $( this );
-		if ( $input.val() !== $input.data( 'focus-val' ) ) {
-			saveAlt( $input.closest( 'tr[data-attachment-id]' ) );
+		$btn.prop( 'disabled', ! dirty )
+			.toggleClass( 'is-dirty button-primary', dirty );
+
+		// Clear a lingering error indicator as soon as the user edits again.
+		if ( dirty ) {
+			$saveInd.removeClass( 'is-error' );
 		}
 	} );
 
-	// Auto-save on Enter key.
+	// Save button click.
+	$( document ).on( 'click', '.lwia-row-save', function () {
+		saveAlt( $( this ).closest( 'tr[data-attachment-id]' ) );
+	} );
+
+	// Save on Enter key.
 	$( document ).on( 'keydown', '.lwia-alt-input', function ( e ) {
 		if ( 13 === e.which ) {
 			e.preventDefault();
-			var $input = $( this );
-			// Trigger blur so the blur handler fires (and deduplicates the save).
-			$input.data( 'focus-val', $input.val() + '\0' ); // force "changed" on blur
-			$input.blur();
+			saveAlt( $( this ).closest( 'tr[data-attachment-id]' ) );
+		}
+	} );
+
+	// Silent autosave on blur (power-user shortcut — same as clicking Save).
+	$( document ).on( 'blur', '.lwia-alt-input', function () {
+		var $input = $( this );
+		if ( $input.val() !== ( $input.data( 'original-alt' ) || '' ) ) {
+			saveAlt( $input.closest( 'tr[data-attachment-id]' ) );
 		}
 	} );
 
@@ -60,8 +74,9 @@
 		var filename     = $row.data( 'filename' ) || '';
 		var $wrap        = $row.find( '.lwia-inline-edit-wrap' );
 		var $input       = $wrap.find( '.lwia-alt-input' );
+		var $btn         = $wrap.find( '.lwia-row-save' );
 		var $spinner     = $wrap.find( '.lwia-spinner' );
-		var $indicator   = $wrap.find( '.lwia-indicator' );
+		var $saveInd     = $wrap.find( '.lwia-save-indicator' );
 		var $srStatus    = $wrap.find( '.lwia-status' );
 		var newAlt       = $input.val();
 
@@ -71,8 +86,9 @@
 		}
 		$input.data( 'saving', true );
 		$input.prop( 'disabled', true );
+		$btn.prop( 'disabled', true );
 
-		$indicator.removeClass( 'is-saved is-error' );
+		$saveInd.removeClass( 'is-success is-error is-fading' );
 		$spinner.addClass( 'is-active' );
 		$srStatus.text( lwiaData.saving );
 
@@ -91,19 +107,24 @@
 			$input.prop( 'disabled', false ).data( 'saving', false );
 
 			if ( response.success ) {
+				// Update original so button stays disabled on subsequent blur.
+				$input.data( 'original-alt', newAlt );
+				$btn.prop( 'disabled', true ).removeClass( 'is-dirty button-primary' );
+
 				$srStatus.text( lwiaData.saved );
-				$indicator.addClass( 'is-saved' );
+				$saveInd.addClass( 'is-success' );
 
 				// Toast: "Alt text saved for filename."
-				var msg = lwiaData.savedToast.replace( '%s', filename );
-				showToast( msg, 'success', true );
+				showToast( lwiaData.savedToast.replace( '%s', filename ), 'success', true );
 
-				// Update focus-val so a subsequent blur doesn't re-fire.
-				$input.data( 'focus-val', newAlt );
+				// Fade the success indicator after 2s.
+				setTimeout( function () {
+					$saveInd.addClass( 'is-fading' );
+					setTimeout( function () { $saveInd.removeClass( 'is-success is-fading' ); }, 300 );
+				}, 2000 );
 
 				// Fade out the row after a short delay.
 				setTimeout( function () {
-					$indicator.removeClass( 'is-saved' );
 					$row.fadeOut( 300, function () {
 						$( this ).remove();
 						decrementCount();
@@ -111,23 +132,25 @@
 				}, 900 );
 
 			} else {
+				// Leave button enabled so the user can retry.
+				$btn.prop( 'disabled', false );
+
 				var errMsg = ( response.data && response.data.message )
 					? response.data.message
 					: lwiaData.errorMsg;
 
-				$indicator.addClass( 'is-error' ).attr( 'title', errMsg );
+				$saveInd.addClass( 'is-error' );
 				$srStatus.text( errMsg );
 
-				// Toast: "Couldn't save alt text for filename. reason."
-				var errToast = lwiaData.errorToast.replace( '%s', filename ) + ' ' + errMsg;
-				showToast( errToast, 'error', false );
+				showToast( lwiaData.errorToast.replace( '%s', filename ) + ' ' + errMsg, 'error', false );
 			}
 		} )
 		.fail( function () {
 			$spinner.removeClass( 'is-active' );
 			$input.prop( 'disabled', false ).data( 'saving', false );
+			$btn.prop( 'disabled', false );
 
-			$indicator.addClass( 'is-error' ).attr( 'title', lwiaData.errorMsg );
+			$saveInd.addClass( 'is-error' );
 			$srStatus.text( lwiaData.errorMsg );
 
 			showToast( lwiaData.errorToast.replace( '%s', filename ) + ' ' + lwiaData.errorMsg, 'error', false );

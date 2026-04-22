@@ -32,26 +32,22 @@ defined( 'ABSPATH' ) || exit;
 	// Filter form
 	// -------------------------------------------------------------------------
 	?>
-	<form method="get" class="lwia-filters">
+	<form method="get" class="lwia-filter-row">
 		<input type="hidden" name="page" value="lw-img-alt">
 
-		<span class="lwia-filter-label"><?php esc_html_e( 'Filter:', 'lw-img-alt' ); ?></span>
+		<span class="lwia-filter-prefix"><?php esc_html_e( 'Filter:', 'lw-img-alt' ); ?></span>
 
-		<span class="lwia-filter-group">
-			<label for="lwia-filter-attachment" class="lwia-filter-group-label">
-				<?php esc_html_e( 'Status', 'lw-img-alt' ); ?>
-			</label>
+		<div class="lwia-filter-field">
+			<label for="lwia-filter-attachment"><?php esc_html_e( 'STATUS', 'lw-img-alt' ); ?></label>
 			<select id="lwia-filter-attachment" name="attachment">
 				<option value="all"        <?php selected( $filter_attach, 'all' ); ?>><?php esc_html_e( 'All images', 'lw-img-alt' ); ?></option>
 				<option value="attached"   <?php selected( $filter_attach, 'attached' ); ?>><?php esc_html_e( 'Attached', 'lw-img-alt' ); ?></option>
 				<option value="unattached" <?php selected( $filter_attach, 'unattached' ); ?>><?php esc_html_e( 'Unattached', 'lw-img-alt' ); ?></option>
 			</select>
-		</span>
+		</div>
 
-		<span class="lwia-filter-group">
-			<label for="lwia-filter-mime" class="lwia-filter-group-label">
-				<?php esc_html_e( 'Type', 'lw-img-alt' ); ?>
-			</label>
+		<div class="lwia-filter-field">
+			<label for="lwia-filter-mime"><?php esc_html_e( 'TYPE', 'lw-img-alt' ); ?></label>
 			<select id="lwia-filter-mime" name="mime_type">
 				<option value="all"        <?php selected( $filter_mime, 'all' ); ?>><?php esc_html_e( 'All types', 'lw-img-alt' ); ?></option>
 				<option value="image/jpeg" <?php selected( $filter_mime, 'image/jpeg' ); ?>>JPEG</option>
@@ -60,65 +56,67 @@ defined( 'ABSPATH' ) || exit;
 				<option value="image/gif"  <?php selected( $filter_mime, 'image/gif' ); ?>>GIF</option>
 				<option value="image/avif" <?php selected( $filter_mime, 'image/avif' ); ?>>AVIF</option>
 			</select>
-		</span>
+		</div>
 
-		<label for="lwia-filter-date-from" class="lwia-label-inline">
-			<?php esc_html_e( 'From', 'lw-img-alt' ); ?>
-		</label>
-		<input
-			type="date"
-			id="lwia-filter-date-from"
-			name="date_from"
-			value="<?php echo esc_attr( $filter_date_f ); ?>"
-		>
+		<div class="lwia-filter-field">
+			<label for="lwia-filter-date-from"><?php esc_html_e( 'FROM', 'lw-img-alt' ); ?></label>
+			<input
+				type="date"
+				id="lwia-filter-date-from"
+				name="date_from"
+				value="<?php echo esc_attr( $filter_date_f ); ?>"
+			>
+		</div>
 
-		<label for="lwia-filter-date-to" class="lwia-label-inline">
-			<?php esc_html_e( 'To', 'lw-img-alt' ); ?>
-		</label>
-		<input
-			type="date"
-			id="lwia-filter-date-to"
-			name="date_to"
-			value="<?php echo esc_attr( $filter_date_t ); ?>"
-		>
+		<div class="lwia-filter-field">
+			<label for="lwia-filter-date-to"><?php esc_html_e( 'TO', 'lw-img-alt' ); ?></label>
+			<input
+				type="date"
+				id="lwia-filter-date-to"
+				name="date_to"
+				value="<?php echo esc_attr( $filter_date_t ); ?>"
+			>
+		</div>
 
-		<button
-			type="submit"
-			name="lwia-filter-submit"
-			id="lwia-filter-submit"
-			class="button"
-			title="<?php esc_attr_e( 'Results update automatically when images are added or edited. Click to force a refresh.', 'lw-img-alt' ); ?>"
-		>
-			<?php esc_html_e( 'Refresh results', 'lw-img-alt' ); ?>
-		</button>
+		<div class="lwia-filter-actions">
+			<button
+				type="submit"
+				name="lwia-filter-submit"
+				id="lwia-filter-submit"
+				class="button"
+				title="<?php esc_attr_e( 'Results update automatically when images are added or edited. Click to force a refresh.', 'lw-img-alt' ); ?>"
+			>
+				<?php esc_html_e( 'Refresh results', 'lw-img-alt' ); ?>
+			</button>
 
-		<?php if ( $filter_attach !== 'all' || $filter_date_f || $filter_date_t || $filter_mime !== 'all' ) : ?>
-			<a href="<?php echo esc_url( admin_url( 'admin.php?page=lw-img-alt' ) ); ?>" class="button">
-				<?php esc_html_e( 'Clear filters', 'lw-img-alt' ); ?>
-			</a>
-		<?php endif; ?>
+			<?php if ( $filter_attach !== 'all' || $filter_date_f || $filter_date_t || $filter_mime !== 'all' ) : ?>
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=lw-img-alt' ) ); ?>" class="button">
+					<?php esc_html_e( 'Clear filters', 'lw-img-alt' ); ?>
+				</a>
+			<?php endif; ?>
 
-		<?php
-		$export_url = wp_nonce_url(
-			add_query_arg(
-				array_filter(
-					array(
-						'page'       => 'lw-img-alt',
-						'action'     => 'lwia_export_csv',
-						'attachment' => ( 'all' !== $filter_attach ) ? $filter_attach : false,
-						'date_from'  => $filter_date_f ?: false,
-						'date_to'    => $filter_date_t ?: false,
-						'mime_type'  => ( 'all' !== $filter_mime ) ? $filter_mime : false,
-					)
+			<?php
+			$export_url = wp_nonce_url(
+				add_query_arg(
+					array_filter(
+						array(
+							'page'       => 'lw-img-alt',
+							'action'     => 'lwia_export_csv',
+							'attachment' => ( 'all' !== $filter_attach ) ? $filter_attach : false,
+							'date_from'  => $filter_date_f ?: false,
+							'date_to'    => $filter_date_t ?: false,
+							'mime_type'  => ( 'all' !== $filter_mime ) ? $filter_mime : false,
+						)
+					),
+					admin_url( 'admin.php' )
 				),
-				admin_url( 'admin.php' )
-			),
-			'lwia_export_csv'
-		);
-		?>
-		<a href="<?php echo esc_url( $export_url ); ?>" class="button button-secondary lwia-export-btn">
-			<?php esc_html_e( 'Export CSV', 'lw-img-alt' ); ?>
-		</a>
+				'lwia_export_csv'
+			);
+			?>
+			<a href="<?php echo esc_url( $export_url ); ?>" class="button button-primary">
+				<?php esc_html_e( 'Export CSV', 'lw-img-alt' ); ?>
+			</a>
+		</div>
 	</form>
 
 	<?php
@@ -150,6 +148,19 @@ defined( 'ABSPATH' ) || exit;
 		}
 		?>
 	</p>
+
+	<?php if ( $total > 0 ) : ?>
+	<p class="lwia-helper-text">
+		<?php
+		printf(
+			/* translators: 1: opening anchor tag, 2: closing anchor tag */
+			esc_html__( 'Edit alt text and click Save, or press Enter. Changes can be rolled back from the %1$sUndo screen%2$s.', 'lw-img-alt' ),
+			'<a href="' . esc_url( admin_url( 'admin.php?page=lwia-undo' ) ) . '">',
+			'</a>'
+		);
+		?>
+	</p>
+	<?php endif; ?>
 
 	<?php if ( 0 === $total ) : ?>
 
@@ -276,8 +287,14 @@ defined( 'ABSPATH' ) || exit;
 								maxlength="125"
 								aria-label="<?php echo esc_attr__( 'Alt text for this image', 'lw-img-alt' ); ?>"
 							>
+							<button
+								type="button"
+								class="button lwia-row-save"
+								disabled
+								aria-label="<?php echo esc_attr__( 'Save alt text', 'lw-img-alt' ); ?>"
+							><?php esc_html_e( 'Save', 'lw-img-alt' ); ?></button>
 							<span class="lwia-spinner spinner" aria-hidden="true"></span>
-							<span class="lwia-indicator" aria-hidden="true"></span>
+							<span class="lwia-save-indicator" aria-hidden="true"></span>
 							<span class="lwia-status screen-reader-text" aria-live="polite"></span>
 						</div>
 					</td>

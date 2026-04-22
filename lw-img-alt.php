@@ -3,7 +3,7 @@
  * Plugin Name:       LW Image Alt
  * Plugin URI:        https://github.com/LWMike/lw-img-alt
  * Description:       Scan the Media Library for images missing alt text and bulk-update them via CSV or inline edit.
- * Version:           0.1.0
+ * Version:           0.3.0
  * Requires at least: 6.4
  * Requires PHP:      8.1
  * Author:            Lead Wolf Digital
@@ -18,7 +18,7 @@
 defined( 'ABSPATH' ) || exit;
 
 // Plugin constants.
-define( 'LWIA_VERSION',     '0.1.0' );
+define( 'LWIA_VERSION',     '0.3.0' );
 define( 'LWIA_DB_VERSION',  '1' );
 define( 'LWIA_PLUGIN_FILE', __FILE__ );
 define( 'LWIA_PLUGIN_DIR',  plugin_dir_path( __FILE__ ) );
