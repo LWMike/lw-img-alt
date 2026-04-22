@@ -287,6 +287,14 @@ defined( 'ABSPATH' ) || exit;
 								maxlength="125"
 								aria-label="<?php echo esc_attr__( 'Alt text for this image', 'lw-img-alt' ); ?>"
 							>
+							<?php if ( LWIA_AI_Settings::is_enabled() && LWIA_AI_Settings::get_api_key() ) : ?>
+							<button
+								type="button"
+								class="button lwia-ai-generate-btn"
+								data-attachment-id="<?php echo esc_attr( (string) $attachment_id ); ?>"
+								title="<?php esc_attr_e( 'Generate alt text suggestion using AI', 'lw-img-alt' ); ?>"
+							><?php esc_html_e( 'Generate', 'lw-img-alt' ); ?></button>
+							<?php endif; ?>
 							<button
 								type="button"
 								class="button lwia-row-save"

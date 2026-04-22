@@ -36,11 +36,15 @@ class LWIA_Logger {
 		  source VARCHAR(16) NOT NULL DEFAULT '',
 		  batch_id VARCHAR(36) NOT NULL DEFAULT '',
 		  created_at DATETIME NOT NULL,
+		  ai_model VARCHAR(64) DEFAULT NULL,
+		  ai_prompt_version VARCHAR(16) DEFAULT NULL,
+		  ai_confidence DECIMAL(3,2) DEFAULT NULL,
 		  PRIMARY KEY  (id),
 		  KEY attachment_id (attachment_id),
 		  KEY batch_id (batch_id),
 		  KEY source (source),
-		  KEY created_at (created_at)
+		  KEY created_at (created_at),
+		  KEY ai_model (ai_model)
 		) {$charset_collate};";
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
@@ -52,12 +56,15 @@ class LWIA_Logger {
 	 *
 	 * @param array $data {
 	 *     Required. Log row data.
-	 *     @type int    $attachment_id Attachment post ID.
-	 *     @type string $old_alt       Previous alt text value (empty string if none).
-	 *     @type string $new_alt       New alt text value.
-	 *     @type int    $user_id       WordPress user ID who made the change.
-	 *     @type string $source        'manual' | 'csv' | 'batch' | 'undo'.
-	 *     @type string $batch_id      UUID grouping related updates.
+	 *     @type int         $attachment_id     Attachment post ID.
+	 *     @type string      $old_alt           Previous alt text value (empty string if none).
+	 *     @type string      $new_alt           New alt text value.
+	 *     @type int         $user_id           WordPress user ID who made the change.
+	 *     @type string      $source            'manual' | 'csv' | 'batch' | 'undo'.
+	 *     @type string      $batch_id          UUID grouping related updates.
+	 *     @type string|null $ai_model          Model ID e.g. 'claude-haiku-4-5-20251001'. Omit/null for manual edits.
+	 *     @type string|null $ai_prompt_version Prompt version e.g. 'v2.0'. Omit/null for manual edits.
+	 *     @type float|null  $ai_confidence     0.0–1.0 confidence score. Omit/null for manual edits.
 	 * }
 	 * @return bool True on success, false on DB error.
 	 */
@@ -66,18 +73,32 @@ class LWIA_Logger {
 
 		$table = $wpdb->prefix . 'lwia_log';
 
+		// Base columns always written.
+		$row     = array(
+			'attachment_id' => (int) ( $data['attachment_id'] ?? 0 ),
+			'old_alt'       => isset( $data['old_alt'] ) ? (string) $data['old_alt'] : '',
+			'new_alt'       => (string) ( $data['new_alt'] ?? '' ),
+			'user_id'       => (int) ( $data['user_id'] ?? 0 ),
+			'source'        => sanitize_key( $data['source'] ?? '' ),
+			'batch_id'      => sanitize_text_field( $data['batch_id'] ?? '' ),
+			'created_at'    => current_time( 'mysql', true ),
+		);
+		$formats = array( '%d', '%s', '%s', '%d', '%s', '%s', '%s' );
+
+		// Optional AI columns — omitted entirely when null so DB DEFAULT NULL applies.
+		if ( isset( $data['ai_model'] ) && '' !== $data['ai_model'] ) {
+			$row['ai_model']          = sanitize_text_field( $data['ai_model'] );
+			$row['ai_prompt_version'] = sanitize_text_field( $data['ai_prompt_version'] ?? '' );
+			$row['ai_confidence']     = round( (float) ( $data['ai_confidence'] ?? 0.0 ), 2 );
+			$formats[]                = '%s';
+			$formats[]                = '%s';
+			$formats[]                = '%f';
+		}
+
 		$result = $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 			$table,
-			array(
-				'attachment_id' => (int) ( $data['attachment_id'] ?? 0 ),
-				'old_alt'       => isset( $data['old_alt'] ) ? (string) $data['old_alt'] : '',
-				'new_alt'       => (string) ( $data['new_alt'] ?? '' ),
-				'user_id'       => (int) ( $data['user_id'] ?? 0 ),
-				'source'        => sanitize_key( $data['source'] ?? '' ),
-				'batch_id'      => sanitize_text_field( $data['batch_id'] ?? '' ),
-				'created_at'    => current_time( 'mysql', true ), // UTC
-			),
-			array( '%d', '%s', '%s', '%d', '%s', '%s', '%s' )
+			$row,
+			$formats
 		);
 
 		return false !== $result;

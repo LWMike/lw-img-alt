@@ -216,6 +216,12 @@ $lwia_format_date = function( string $mysql_dt ) use ( &$lwia_format_date ): str
 					<span class="lwia-source-badge lwia-source-<?php echo esc_attr( (string) $entry->source ); ?>">
 						<?php echo esc_html( (string) $entry->source ); ?>
 					</span>
+					<?php if ( ! empty( $entry->ai_model ) ) : ?>
+					<span
+						class="lwia-ai-badge"
+						title="<?php echo esc_attr( (string) $entry->ai_model ); ?>"
+					>AI</span>
+					<?php endif; ?>
 				</td>
 				<td class="lwia-log-col-user">
 					<?php echo $user ? esc_html( $user->display_name ) : esc_html( '#' . $entry->user_id ); ?>

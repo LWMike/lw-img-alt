@@ -96,10 +96,13 @@
 			url:    lwiaData.ajaxUrl,
 			method: 'POST',
 			data: {
-				action:        'lwia_save_alt',
-				nonce:         lwiaData.nonce,
-				attachment_id: attachmentId,
-				alt_text:      newAlt
+				action:             'lwia_save_alt',
+				nonce:              lwiaData.nonce,
+				attachment_id:      attachmentId,
+				alt_text:           newAlt,
+				ai_model:           $input.data( 'ai-model' )           || '',
+				ai_prompt_version:  $input.data( 'ai-prompt-version' )  || '',
+				ai_confidence:      $input.data( 'ai-confidence' )      || '',
 			}
 		} )
 		.done( function ( response ) {
@@ -206,6 +209,9 @@
 			}, 3000 );
 		}
 	}
+
+	// Expose showToast so sibling scripts (ai-generate.js) can reuse it.
+	window.lwiaShowToast = showToast;
 
 	// =========================================================================
 	// CSV Import — chunked apply with progress bar

@@ -56,6 +56,15 @@ class LWIA_Plugin {
 		require_once $dir . 'class-csv-export.php';
 		require_once $dir . 'class-csv-import.php';
 		require_once $dir . 'class-undo.php';
+
+		// AI subsystem — load in dependency order.
+		require_once $dir . 'class-ai-provider.php';
+		require_once $dir . 'class-ai-prompt.php';
+		require_once $dir . 'class-ai-quality-score.php';
+		require_once $dir . 'class-ai-settings.php';
+		require_once $dir . 'class-ai-openai.php';
+		require_once $dir . 'class-ai-batch-queue.php';
+
 		require_once $dir . 'class-admin.php';
 		require_once $dir . 'class-ajax.php';
 
@@ -70,14 +79,33 @@ class LWIA_Plugin {
 	private function init_hooks(): void {
 		add_action( 'init', array( $this, 'load_textdomain' ) );
 
-		// Flush scanner cache whenever a new attachment is uploaded, so the next
-		// scan reflects the newly added image immediately.
+		// Flush scanner cache whenever a new attachment is uploaded.
 		add_action( 'add_attachment', array( 'LWIA_Scanner', 'flush_cache' ) );
+
+		// AI batch polling via WP-Cron.
+		LWIA_AI_Batch_Queue::register_hooks();
 
 		// Admin screens — only in the admin context (includes admin-ajax.php).
 		if ( is_admin() ) {
 			new LWIA_Admin();
 			new LWIA_Ajax();
+		}
+
+		// Run DB upgrade if schema version has changed.
+		add_action( 'plugins_loaded', array( $this, 'maybe_upgrade_db' ) );
+	}
+
+	/**
+	 * Run database migrations when the stored DB version is behind the current one.
+	 * Uses dbDelta which is safe to call on any existing install.
+	 */
+	public function maybe_upgrade_db(): void {
+		if ( (string) get_option( 'lwia_db_version', '0' ) !== LWIA_DB_VERSION ) {
+			if ( ! class_exists( 'LWIA_Logger' ) ) {
+				require_once LWIA_PLUGIN_DIR . 'includes/class-logger.php';
+			}
+			LWIA_Logger::create_table();
+			update_option( 'lwia_db_version', LWIA_DB_VERSION );
 		}
 	}
 

@@ -26,19 +26,24 @@ class LWIA_Admin {
 		add_action( 'admin_menu',            array( $this, 'register_menus' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'current_screen',        array( $this, 'setup_screen' ) );
+		add_action( 'admin_notices',         array( $this, 'maybe_show_batch_notice' ) );
 
 		// GET-based handlers — intercepted before the page renders.
 		add_action( 'admin_init', array( $this, 'handle_export' ) );
 		add_action( 'admin_init', array( $this, 'handle_sample_csv' ) );
 
 		// POST-based handlers via admin-post.php.
-		add_action( 'admin_post_lwia_import_upload', array( $this, 'handle_import_upload' ) );
-		add_action( 'admin_post_lwia_undo_batch',    array( $this, 'handle_undo_batch' ) );
+		add_action( 'admin_post_lwia_import_upload',  array( $this, 'handle_import_upload' ) );
+		add_action( 'admin_post_lwia_undo_batch',     array( $this, 'handle_undo_batch' ) );
+		add_action( 'admin_post_lwia_ai_settings',    array( $this, 'handle_ai_settings' ) );
+		add_action( 'admin_post_lwia_ai_batch_start', array( $this, 'handle_ai_batch_start' ) );
+		add_action( 'admin_post_lwia_ai_batch_apply', array( $this, 'handle_ai_batch_apply' ) );
 
 		// Allow WordPress to persist per-page screen options for our screens.
-		add_filter( 'set_screen_option_lwia_scan_per_page', fn( $s, $o, $v ) => (int) $v, 10, 3 );
-		add_filter( 'set_screen_option_lwia_log_per_page',  fn( $s, $o, $v ) => (int) $v, 10, 3 );
-		add_filter( 'set_screen_option_lwia_undo_per_page', fn( $s, $o, $v ) => (int) $v, 10, 3 );
+		add_filter( 'set_screen_option_lwia_scan_per_page',    fn( $s, $o, $v ) => (int) $v, 10, 3 );
+		add_filter( 'set_screen_option_lwia_log_per_page',     fn( $s, $o, $v ) => (int) $v, 10, 3 );
+		add_filter( 'set_screen_option_lwia_undo_per_page',    fn( $s, $o, $v ) => (int) $v, 10, 3 );
+		add_filter( 'set_screen_option_lwia_suggest_per_page', fn( $s, $o, $v ) => (int) $v, 10, 3 );
 	}
 
 	// =========================================================================
@@ -95,6 +100,37 @@ class LWIA_Admin {
 			'manage_options',
 			'lwia-undo',
 			array( $this, 'render_undo' )
+		);
+
+		// AI sub-menu items — only shown when AI is enabled.
+		if ( LWIA_AI_Settings::is_enabled() ) {
+			$this->page_hooks['ai-suggest'] = add_submenu_page(
+				'lw-img-alt',
+				esc_html__( 'Image Alt — AI Suggest', 'lw-img-alt' ),
+				esc_html__( 'AI Suggest', 'lw-img-alt' ),
+				'manage_options',
+				'lwia-ai-suggest',
+				array( $this, 'render_ai_suggest' )
+			);
+		}
+
+		// Review screen — accessible via URL, not in the menu.
+		$this->page_hooks['ai-review'] = add_submenu_page(
+			null, // no parent — hidden from menu
+			esc_html__( 'Image Alt — AI Review', 'lw-img-alt' ),
+			'',
+			'manage_options',
+			'lwia-ai-review',
+			array( $this, 'render_ai_review' )
+		);
+
+		$this->page_hooks['ai-settings'] = add_submenu_page(
+			'lw-img-alt',
+			esc_html__( 'Image Alt — AI Settings', 'lw-img-alt' ),
+			esc_html__( 'AI Settings', 'lw-img-alt' ),
+			'manage_options',
+			'lwia-ai-settings',
+			array( $this, 'render_ai_settings' )
 		);
 	}
 
@@ -218,6 +254,54 @@ class LWIA_Admin {
 				'dismiss'       => esc_html__( 'Dismiss this notice', 'lw-img-alt' ),
 			)
 		);
+
+		// AI Generate script — Scan screen only.
+		$scan_hook = $this->page_hooks['scan'] ?? '';
+		if ( $hook_suffix === $scan_hook && LWIA_AI_Settings::is_enabled() && LWIA_AI_Settings::get_api_key() ) {
+			wp_enqueue_script(
+				'lwia-ai-generate',
+				LWIA_PLUGIN_URL . 'admin/js/ai-generate.js',
+				array( 'jquery', 'lwia-admin' ),
+				LWIA_VERSION,
+				true
+			);
+			wp_localize_script(
+				'lwia-ai-generate',
+				'lwiaAI',
+				array(
+					'ajaxUrl'        => admin_url( 'admin-ajax.php' ),
+					'nonce'          => wp_create_nonce( 'lwia_ai_generate' ),
+					'generating'     => esc_html__( 'Generating…', 'lw-img-alt' ),
+					'generateBtn'    => esc_html__( 'Generate', 'lw-img-alt' ),
+					'generateFailed' => esc_html__( 'AI generation failed', 'lw-img-alt' ),
+					'rateLimited'    => esc_html__( 'AI is busy — try batch mode for large jobs.', 'lw-img-alt' ),
+				)
+			);
+		}
+
+		// AI Review script — review screen only.
+		$review_hook = $this->page_hooks['ai-review'] ?? '';
+		if ( $hook_suffix === $review_hook ) {
+			wp_enqueue_script(
+				'lwia-ai-review',
+				LWIA_PLUGIN_URL . 'admin/js/ai-review.js',
+				array( 'jquery' ),
+				LWIA_VERSION,
+				true
+			);
+			wp_localize_script(
+				'lwia-ai-review',
+				'lwiaReview',
+				array(
+					'ajaxUrl'        => admin_url( 'admin-ajax.php' ),
+					'applyNonce'     => wp_create_nonce( 'lwia_ai_batch_apply' ),
+					'confirmApply'   => esc_html__( 'Apply the selected suggestions? This will update alt text for the checked images and cannot be undone without using the Undo screen.', 'lw-img-alt' ),
+					'applying'       => esc_html__( 'Applying…', 'lw-img-alt' ),
+					'applied'        => esc_html__( 'Done — alt text updated.', 'lw-img-alt' ),
+					'errorMsg'       => esc_html__( 'Error applying suggestions. Please try again.', 'lw-img-alt' ),
+				)
+			);
+		}
 	}
 
 	// =========================================================================
@@ -545,6 +629,142 @@ class LWIA_Admin {
 		exit;
 	}
 
+	// =========================================================================
+	// Admin notice — AI batch completion
+	// =========================================================================
+
+	/**
+	 * Show a dismissible notice when an AI batch job completes for the current user.
+	 */
+	public function maybe_show_batch_notice(): void {
+		$notice_key = 'lwia_ai_complete_' . get_current_user_id();
+		$notice     = get_transient( $notice_key );
+		if ( ! $notice ) {
+			return;
+		}
+		delete_transient( $notice_key );
+
+		$review_url = add_query_arg(
+			array( 'page' => 'lwia-ai-review', 'job_id' => urlencode( (string) $notice['job_id'] ) ),
+			admin_url( 'admin.php' )
+		);
+
+		printf(
+			'<div class="notice notice-success is-dismissible"><p>%s</p></div>',
+			wp_kses(
+				sprintf(
+					/* translators: 1: number of suggestions, 2: opening anchor, 3: closing anchor */
+					__( 'AI batch complete — %1$d suggestions ready. %2$sReview and apply them now%3$s.', 'lw-img-alt' ),
+					(int) $notice['succeeded'],
+					'<a href="' . esc_url( $review_url ) . '">',
+					'</a>'
+				),
+				array( 'a' => array( 'href' => array() ) )
+			)
+		);
+	}
+
+	// =========================================================================
+	// AI screen callbacks
+	// =========================================================================
+
+	/**
+	 * Render the AI Suggest screen.
+	 */
+	public function render_ai_suggest(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to access this page.', 'lw-img-alt' ) );
+		}
+
+		if ( ! LWIA_AI_Settings::get_api_key() ) {
+			wp_redirect( admin_url( 'admin.php?page=lwia-ai-settings&notice=no_key' ) );
+			exit;
+		}
+
+		$scanner    = new LWIA_Scanner();
+		$jobs       = LWIA_AI_Batch_Queue::get_jobs();
+		$has_active = LWIA_AI_Batch_Queue::has_active_job();
+
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended
+		$filter_mode   = isset( $_GET['mode'] )      ? sanitize_key( wp_unslash( $_GET['mode'] ) )                        : 'missing';
+		$filter_attach = isset( $_GET['attachment'] ) ? sanitize_key( wp_unslash( $_GET['attachment'] ) )                  : 'all';
+		$filter_date_f = isset( $_GET['date_from'] )  ? sanitize_text_field( wp_unslash( $_GET['date_from'] ) )            : '';
+		$filter_date_t = isset( $_GET['date_to'] )    ? sanitize_text_field( wp_unslash( $_GET['date_to'] ) )              : '';
+		$filter_mime   = isset( $_GET['mime_type'] )  ? sanitize_mime_type( wp_unslash( (string) $_GET['mime_type'] ) )    : 'all';
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+		// Count images in scope for the cost estimate (missing alt only for now).
+		$count_args = array(
+			'attachment' => $filter_attach,
+			'date_from'  => $filter_date_f,
+			'date_to'    => $filter_date_t,
+			'mime_type'  => $filter_mime,
+		);
+		$image_count   = $scanner->get_total( $count_args );
+		$estimated_gbp = LWIA_AI_Settings::estimate_cost( $image_count );
+		$spend         = LWIA_AI_Settings::get_current_spend();
+		$cap           = LWIA_AI_Settings::get_spend_cap();
+
+		// Read and clear any stored API error from the previous batch start attempt.
+		$err_key         = 'lwia_batch_err_' . get_current_user_id();
+		$batch_api_error = (string) ( get_transient( $err_key ) ?: '' );
+		if ( $batch_api_error ) {
+			delete_transient( $err_key );
+		}
+
+		require LWIA_PLUGIN_DIR . 'admin/views/ai-suggest.php';
+	}
+
+	/**
+	 * Render the AI Review screen (job results).
+	 */
+	public function render_ai_review(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to access this page.', 'lw-img-alt' ) );
+		}
+
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended
+		$job_id = isset( $_GET['job_id'] ) ? sanitize_text_field( wp_unslash( $_GET['job_id'] ) ) : '';
+		$paged  = isset( $_GET['paged'] )  ? max( 1, absint( $_GET['paged'] ) )                   : 1;
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+		$job     = $job_id ? LWIA_AI_Batch_Queue::get_job( $job_id ) : null;
+		$results = ( $job && 'complete' === ( $job['status'] ?? '' ) )
+			? LWIA_AI_Batch_Queue::get_results( $job_id )
+			: false;
+
+		$per_page    = 50;
+		$all_results = is_array( $results ) ? array_values( $results ) : array();
+		$total       = count( $all_results );
+		$total_pages = max( 1, (int) ceil( $total / $per_page ) );
+		$offset      = ( $paged - 1 ) * $per_page;
+		$page_results = array_slice( $all_results, $offset, $per_page );
+
+		require LWIA_PLUGIN_DIR . 'admin/views/ai-review.php';
+	}
+
+	/**
+	 * Render the AI Settings screen.
+	 */
+	public function render_ai_settings(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to access this page.', 'lw-img-alt' ) );
+		}
+
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended
+		$saved  = isset( $_GET['saved'] )  ? (bool) $_GET['saved']                                  : false;
+		$notice = isset( $_GET['notice'] ) ? sanitize_key( wp_unslash( $_GET['notice'] ) )           : '';
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+		$spend = LWIA_AI_Settings::get_current_spend();
+
+		require LWIA_PLUGIN_DIR . 'admin/views/ai-settings.php';
+	}
+
+	// =========================================================================
+	// AI form handlers
+	// =========================================================================
+
 	/**
 	 * Handle a batch undo request.
 	 */
@@ -569,6 +789,167 @@ class LWIA_Admin {
 		set_transient( 'lwia_undo_result_' . get_current_user_id(), $result, MINUTE_IN_SECONDS );
 
 		wp_redirect( add_query_arg( 'undone', '1', $redirect_to ) );
+		exit;
+	}
+
+	/**
+	 * Save AI settings.
+	 */
+	public function handle_ai_settings(): void {
+		check_admin_referer( 'lwia_ai_settings' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to change AI settings.', 'lw-img-alt' ) );
+		}
+
+		LWIA_AI_Settings::save_from_post( $_POST ); // phpcs:ignore WordPress.Security.NonceVerification.Missing -- checked above
+
+		wp_redirect( add_query_arg( 'saved', '1', admin_url( 'admin.php?page=lwia-ai-settings' ) ) );
+		exit;
+	}
+
+	/**
+	 * Start a new AI batch generation job.
+	 */
+	public function handle_ai_batch_start(): void {
+		check_admin_referer( 'lwia_ai_batch_start' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to start AI batch jobs.', 'lw-img-alt' ) );
+		}
+
+		$redirect_base = admin_url( 'admin.php?page=lwia-ai-suggest' );
+
+		if ( LWIA_AI_Batch_Queue::has_active_job() ) {
+			wp_redirect( add_query_arg( 'error', 'job_active', $redirect_base ) );
+			exit;
+		}
+
+		if ( LWIA_AI_Settings::is_cap_reached() ) {
+			wp_redirect( add_query_arg( 'error', 'cap_reached', $redirect_base ) );
+			exit;
+		}
+
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- checked above
+		$mode          = isset( $_POST['mode'] )       ? sanitize_key( wp_unslash( $_POST['mode'] ) )                        : 'missing';
+		$filter_attach = isset( $_POST['attachment'] ) ? sanitize_key( wp_unslash( $_POST['attachment'] ) )                  : 'all';
+		$filter_date_f = isset( $_POST['date_from'] )  ? sanitize_text_field( wp_unslash( $_POST['date_from'] ) )            : '';
+		$filter_date_t = isset( $_POST['date_to'] )    ? sanitize_text_field( wp_unslash( $_POST['date_to'] ) )              : '';
+		$filter_mime   = isset( $_POST['mime_type'] )  ? sanitize_mime_type( wp_unslash( (string) $_POST['mime_type'] ) )    : 'all';
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+
+		$scanner = new LWIA_Scanner();
+		$rows    = $scanner->get_missing( array(
+			'per_page'   => 10000,
+			'attachment' => $filter_attach,
+			'date_from'  => $filter_date_f,
+			'date_to'    => $filter_date_t,
+			'mime_type'  => $filter_mime,
+		) );
+
+		if ( empty( $rows ) ) {
+			wp_redirect( add_query_arg( 'error', 'no_images', $redirect_base ) );
+			exit;
+		}
+
+		$images = array();
+		foreach ( $rows as $row ) {
+			$url = wp_get_attachment_image_url( (int) $row->ID, 'large' );
+			if ( ! $url ) {
+				$url = (string) $row->guid;
+			}
+			$images[] = array(
+				'attachment_id' => (int) $row->ID,
+				'image_url'     => $url,
+				'existing_alt'  => '',
+			);
+		}
+
+		$local_id = LWIA_AI_Batch_Queue::create( $images, $mode );
+
+		if ( ! $local_id ) {
+			wp_redirect( add_query_arg( 'error', 'batch_failed', $redirect_base ) );
+			exit;
+		}
+
+		wp_redirect( add_query_arg( array( 'started' => '1', 'job_id' => urlencode( $local_id ) ), $redirect_base ) );
+		exit;
+	}
+
+	/**
+	 * Apply selected AI suggestions from the review screen.
+	 */
+	public function handle_ai_batch_apply(): void {
+		check_admin_referer( 'lwia_ai_batch_apply' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to apply AI suggestions.', 'lw-img-alt' ) );
+		}
+
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- checked above
+		$job_id   = isset( $_POST['job_id'] )   ? sanitize_text_field( wp_unslash( $_POST['job_id'] ) )   : '';
+		$selected = isset( $_POST['selected'] ) ? array_map( 'absint', (array) $_POST['selected'] )        : array();
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+
+		$redirect_base = add_query_arg(
+			array( 'page' => 'lwia-ai-review', 'job_id' => urlencode( $job_id ) ),
+			admin_url( 'admin.php' )
+		);
+
+		if ( ! $job_id || empty( $selected ) ) {
+			wp_redirect( add_query_arg( 'error', 'no_selection', $redirect_base ) );
+			exit;
+		}
+
+		$results = LWIA_AI_Batch_Queue::get_results( $job_id );
+		if ( ! is_array( $results ) ) {
+			wp_redirect( add_query_arg( 'error', 'expired', $redirect_base ) );
+			exit;
+		}
+
+		$batch_id = wp_generate_uuid4();
+		$applied  = 0;
+		$skipped  = 0;
+		$errors   = 0;
+		$ai_data  = array(
+			'ai_model'          => LWIA_AI_OpenAI::MODEL,
+			'ai_prompt_version' => LWIA_AI_Prompt::VERSION,
+		);
+
+		foreach ( $selected as $attachment_id ) {
+			$key    = (string) $attachment_id;
+			$result = $results[ $key ] ?? null;
+
+			if ( ! $result || ! $result->success || '' === $result->alt ) {
+				$skipped++;
+				continue;
+			}
+
+			// Inline edits from the review screen are stored in POST.
+			$alt_key  = 'alt_' . $attachment_id;
+			$alt_text = isset( $_POST[ $alt_key ] ) // phpcs:ignore WordPress.Security.NonceVerification.Missing
+				? sanitize_text_field( wp_unslash( $_POST[ $alt_key ] ) )
+				: $result->alt;
+
+			$ok = LWIA_Updater::update(
+				$attachment_id,
+				$alt_text,
+				'batch',
+				$batch_id,
+				array_merge( $ai_data, array( 'ai_confidence' => $result->confidence ) )
+			);
+
+			if ( $ok ) {
+				$applied++;
+			} else {
+				$errors++;
+			}
+		}
+
+		wp_redirect( add_query_arg(
+			array( 'applied' => $applied, 'skipped' => $skipped, 'errors' => $errors ),
+			$redirect_base
+		) );
 		exit;
 	}
 }

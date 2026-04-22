@@ -21,6 +21,7 @@ class LWIA_Ajax {
 	public function __construct() {
 		add_action( 'wp_ajax_lwia_save_alt',    array( $this, 'save_alt' ) );
 		add_action( 'wp_ajax_lwia_apply_chunk', array( $this, 'apply_chunk' ) );
+		add_action( 'wp_ajax_lwia_ai_generate', array( $this, 'ai_generate' ) );
 	}
 
 	/**
@@ -72,12 +73,27 @@ class LWIA_Ajax {
 			);
 		}
 
+		// Optional AI metadata forwarded by ai-generate.js when saving an AI suggestion.
+		$ai_model          = isset( $_POST['ai_model'] )          ? sanitize_text_field( wp_unslash( $_POST['ai_model'] ) )          : '';
+		$ai_prompt_version = isset( $_POST['ai_prompt_version'] ) ? sanitize_text_field( wp_unslash( $_POST['ai_prompt_version'] ) ) : '';
+		$ai_confidence     = isset( $_POST['ai_confidence'] )     ? (float) $_POST['ai_confidence']                                  : null;
+
+		$ai_data = array();
+		if ( $ai_model ) {
+			$ai_data = array(
+				'ai_model'          => $ai_model,
+				'ai_prompt_version' => $ai_prompt_version,
+				'ai_confidence'     => $ai_confidence,
+			);
+		}
+
 		// 5. Write via the single write path.
 		$updated = LWIA_Updater::update(
 			$attachment_id,
 			$alt_text,
 			'manual',
-			wp_generate_uuid4()
+			wp_generate_uuid4(),
+			$ai_data
 		);
 
 		if ( $updated ) {
@@ -144,5 +160,100 @@ class LWIA_Ajax {
 		}
 
 		wp_send_json_success( $result );
+	}
+
+	/**
+	 * Handle a synchronous AI alt text generation request for a single image.
+	 *
+	 * Expected POST params:
+	 *   nonce         string  wp_create_nonce( 'lwia_ai_generate' )
+	 *   attachment_id int
+	 *
+	 * Responds with wp_send_json_success( { alt, confidence, model, prompt_version } )
+	 * or wp_send_json_error.
+	 *
+	 * IMPORTANT: This endpoint returns the AI suggestion only — it does NOT save.
+	 * The user reviews the suggestion in the field and clicks Save to persist it.
+	 */
+	public function ai_generate(): void {
+		check_ajax_referer( 'lwia_ai_generate', 'nonce' );
+
+		if ( ! current_user_can( 'upload_files' ) ) {
+			wp_send_json_error(
+				array( 'message' => esc_html__( 'You do not have permission to use AI generation.', 'lw-img-alt' ) ),
+				403
+			);
+		}
+
+		if ( ! LWIA_AI_Settings::is_enabled() ) {
+			wp_send_json_error(
+				array( 'message' => esc_html__( 'AI features are disabled for this site.', 'lw-img-alt' ) ),
+				403
+			);
+		}
+
+		if ( LWIA_AI_Settings::is_cap_reached() ) {
+			wp_send_json_error(
+				array(
+					'message'    => esc_html__( 'Monthly AI spend cap reached. No new generations until next month or until the cap is raised in AI Settings.', 'lw-img-alt' ),
+					'rate_limit' => true,
+				),
+				429
+			);
+		}
+
+		$attachment_id = isset( $_POST['attachment_id'] ) ? absint( $_POST['attachment_id'] ) : 0;
+
+		if ( $attachment_id < 1 ) {
+			wp_send_json_error( array( 'message' => esc_html__( 'Invalid attachment ID.', 'lw-img-alt' ) ), 400 );
+		}
+
+		$post = get_post( $attachment_id );
+
+		if (
+			! $post
+			|| 'attachment' !== $post->post_type
+			|| ! str_starts_with( $post->post_mime_type, 'image/' )
+		) {
+			wp_send_json_error(
+				array( 'message' => esc_html__( 'Attachment not found or is not an image.', 'lw-img-alt' ) ),
+				404
+			);
+		}
+
+		$image_url    = wp_get_attachment_image_url( $attachment_id, 'large' );
+		if ( ! $image_url ) {
+			$image_url = (string) $post->guid;
+		}
+
+		$existing_alt = (string) get_post_meta( $attachment_id, '_wp_attachment_image_alt', true );
+
+		$provider = LWIA_AI_Batch_Queue::get_provider();
+		if ( ! $provider ) {
+			wp_send_json_error(
+				array( 'message' => esc_html__( 'AI provider not available. Check AI Settings.', 'lw-img-alt' ) ),
+				503
+			);
+		}
+
+		$result = $provider->generate_single( $image_url, array( 'existing_alt' => $existing_alt ) );
+
+		if ( ! $result->success ) {
+			$rate_limited = str_contains( strtolower( $result->error ), 'rate' ) || str_contains( strtolower( $result->error ), '429' );
+			wp_send_json_error(
+				array(
+					'message'    => $result->error ?: esc_html__( 'AI generation failed. Please try again.', 'lw-img-alt' ),
+					'rate_limit' => $rate_limited,
+				),
+				$rate_limited ? 429 : 500
+			);
+		}
+
+		wp_send_json_success( array(
+			'alt'            => $result->alt,
+			'confidence'     => $result->confidence,
+			'model'          => LWIA_AI_OpenAI::MODEL,
+			'prompt_version' => LWIA_AI_Prompt::VERSION,
+		) );
 	}
 }

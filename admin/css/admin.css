@@ -376,7 +376,7 @@ tr.lwia-row-status-skip  { opacity: 0.6; }
 .lwia-log-col-attach { width: 120px; }
 .lwia-log-col-date   { width: 130px; }
 .lwia-log-col-alt    { /* auto — takes remaining space */ }
-.lwia-log-col-source { width: 80px; }
+.lwia-log-col-source { width: 110px; } /* wider to accommodate the AI badge */
 .lwia-log-col-user   { width: 110px; }
 .lwia-log-col-batch  { width: 110px; }
 
@@ -456,4 +456,41 @@ tr.lwia-row-status-skip  { opacity: 0.6; }
 .lwia-undo-form {
 	margin: 0;
 	display: inline;
+}
+
+/* ---- AI: badge for log entries (purple tint) ---- */
+
+.lwia-ai-badge {
+	display: inline-block;
+	padding: 1px 5px;
+	border-radius: 3px;
+	font-size: 10px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	background: #e8e0f5;
+	color: #5b21b6;
+	margin-left: 4px;
+	vertical-align: middle;
+	cursor: default;
+}
+
+/* ---- AI Review: quality confidence badges ---- */
+
+.lwia-quality-good { background: #d8f5e1; color: #00622a; }
+.lwia-quality-warn { background: #fef3cd; color: #7a5c00; }
+.lwia-quality-poor { background: #fce8e8; color: #8b0000; }
+
+/* ---- AI Review: table layout ---- */
+
+.lwia-review-table .lwia-review-alt {
+	width: 100%;
+	box-sizing: border-box;
+}
+
+/* ---- AI Settings: spend table ---- */
+
+.lwia-spend-table th {
+	font-weight: 600;
+	width: 180px;
 }
