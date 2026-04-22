@@ -15,10 +15,31 @@
  */
 
 defined( 'ABSPATH' ) || exit;
+
+$log_base_url = admin_url( 'admin.php?page=lwia-log' );
+
+/**
+ * Format a MySQL UTC datetime as relative (< 7 days) or absolute.
+ */
+$lwia_format_date = function( string $mysql_dt ): string {
+	$ts      = strtotime( $mysql_dt );
+	$now_utc = current_time( 'timestamp', true );
+	$age     = $now_utc - $ts;
+
+	$abs = mysql2date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $mysql_dt );
+
+	if ( $age >= 0 && $age < 7 * DAY_IN_SECONDS ) {
+		/* translators: %s: human-readable time difference, e.g. "3 hours" */
+		$rel = sprintf( esc_html__( '%s ago', 'lw-img-alt' ), human_time_diff( $ts, $now_utc ) );
+		return '<span title="' . esc_attr( $abs ) . '">' . esc_html( $rel ) . '</span>';
+	}
+
+	return esc_html( $abs );
+};
 ?>
 <div class="wrap">
 
-	<h1><?php esc_html_e( 'Undo Changes', 'lw-img-alt' ); ?></h1>
+	<h1><?php esc_html_e( 'Image Alt — Undo', 'lw-img-alt' ); ?></h1>
 
 	<?php if ( $undo_result ) : ?>
 	<div class="notice notice-success is-dismissible">
@@ -47,7 +68,7 @@ defined( 'ABSPATH' ) || exit;
 	<?php endif; ?>
 
 	<p class="description">
-		<?php esc_html_e( 'Each row below represents a group of alt text changes that can be rolled back together. Undo operations restore the previous value for every image in the batch.', 'lw-img-alt' ); ?>
+		<?php esc_html_e( 'Each row represents a group of alt text changes that can be rolled back together. Undo operations restore the previous value for every image in the batch and are themselves logged.', 'lw-img-alt' ); ?>
 	</p>
 
 	<?php if ( empty( $batches ) ) : ?>
@@ -75,43 +96,68 @@ defined( 'ABSPATH' ) || exit;
 				<th scope="col" style="width:140px;"><?php esc_html_e( 'Date', 'lw-img-alt' ); ?></th>
 				<th scope="col" style="width:100px;"><?php esc_html_e( 'Source', 'lw-img-alt' ); ?></th>
 				<th scope="col" style="width:140px;"><?php esc_html_e( 'User', 'lw-img-alt' ); ?></th>
-				<th scope="col" style="width:80px;"><?php esc_html_e( 'Changes', 'lw-img-alt' ); ?></th>
+				<th scope="col" style="width:90px;"><?php esc_html_e( 'Changes', 'lw-img-alt' ); ?></th>
 				<th scope="col"><?php esc_html_e( 'Batch ID', 'lw-img-alt' ); ?></th>
-				<th scope="col" style="width:100px;"><?php esc_html_e( 'Action', 'lw-img-alt' ); ?></th>
+				<th scope="col" style="width:160px;"><?php esc_html_e( 'Actions', 'lw-img-alt' ); ?></th>
 			</tr>
 		</thead>
 		<tbody>
 			<?php foreach ( $batches as $batch ) :
 				$user       = get_userdata( (int) $batch->user_id );
 				$user_name  = $user ? $user->display_name : '#' . $batch->user_id;
-				$date       = mysql2date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $batch->created_at );
+				$row_count  = (int) $batch->row_count;
+				$batch_full = (string) $batch->batch_id;
+				$batch_short = substr( $batch_full, 0, 8 );
+
+				$batch_log_url = add_query_arg(
+					array( 'page' => 'lwia-log', 'batch_id' => urlencode( $batch_full ) ),
+					admin_url( 'admin.php' )
+				);
 			?>
 			<tr>
-				<td><?php echo esc_html( (string) $date ); ?></td>
+				<td>
+					<?php
+					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+					echo $lwia_format_date( (string) $batch->created_at );
+					?>
+				</td>
 				<td>
 					<span class="lwia-source-badge lwia-source-<?php echo esc_attr( (string) $batch->source ); ?>">
 						<?php echo esc_html( (string) $batch->source ); ?>
 					</span>
 				</td>
 				<td><?php echo esc_html( $user_name ); ?></td>
-				<td><?php echo esc_html( (string) $batch->row_count ); ?></td>
 				<td>
-					<code><?php echo esc_html( (string) $batch->batch_id ); ?></code>
+					<?php echo esc_html(
+						sprintf(
+							/* translators: %d: number of images */
+							_n( '%d image', '%d images', $row_count, 'lw-img-alt' ),
+							$row_count
+						)
+					); ?>
+				</td>
+				<td>
+					<code title="<?php echo esc_attr( $batch_full ); ?>"><?php echo esc_html( $batch_short ); ?>&hellip;</code>
 				</td>
 				<td>
 					<form
 						method="post"
 						action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
 						class="lwia-undo-form"
-						onsubmit="return confirm('<?php echo esc_js( __( 'Restore the previous alt text for all images in this batch?', 'lw-img-alt' ) ); ?>')"
+						data-row-count="<?php echo esc_attr( (string) $row_count ); ?>"
+						data-batch-short="<?php echo esc_attr( $batch_short ); ?>"
 					>
 						<?php wp_nonce_field( 'lwia_undo_batch' ); ?>
 						<input type="hidden" name="action"   value="lwia_undo_batch">
-						<input type="hidden" name="batch_id" value="<?php echo esc_attr( (string) $batch->batch_id ); ?>">
-						<button type="submit" class="button button-small button-link-delete">
+						<input type="hidden" name="batch_id" value="<?php echo esc_attr( $batch_full ); ?>">
+						<button type="submit" class="button button-small button-danger">
 							<?php esc_html_e( 'Undo', 'lw-img-alt' ); ?>
 						</button>
 					</form>
+					<a
+						href="<?php echo esc_url( $batch_log_url ); ?>"
+						class="button button-small lwia-view-details-btn"
+					><?php esc_html_e( 'View details', 'lw-img-alt' ); ?></a>
 				</td>
 			</tr>
 			<?php endforeach; ?>

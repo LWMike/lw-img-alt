@@ -22,8 +22,10 @@ defined( 'ABSPATH' ) || exit;
 ?>
 <div class="wrap">
 
-	<h1 class="wp-heading-inline"><?php esc_html_e( 'Image Alt Text', 'lw-img-alt' ); ?></h1>
+	<h1 class="wp-heading-inline"><?php esc_html_e( 'Image Alt — Scan', 'lw-img-alt' ); ?></h1>
 	<hr class="wp-header-end">
+
+	<div id="lwia-toasts" class="lwia-toast-container" aria-live="polite" aria-atomic="false"></div>
 
 	<?php
 	// -------------------------------------------------------------------------
@@ -33,26 +35,32 @@ defined( 'ABSPATH' ) || exit;
 	<form method="get" class="lwia-filters">
 		<input type="hidden" name="page" value="lw-img-alt">
 
-		<label for="lwia-filter-attachment" class="screen-reader-text">
-			<?php esc_html_e( 'Filter by attachment status', 'lw-img-alt' ); ?>
-		</label>
-		<select id="lwia-filter-attachment" name="attachment">
-			<option value="all"        <?php selected( $filter_attach, 'all' ); ?>><?php esc_html_e( 'All images', 'lw-img-alt' ); ?></option>
-			<option value="attached"   <?php selected( $filter_attach, 'attached' ); ?>><?php esc_html_e( 'Attached', 'lw-img-alt' ); ?></option>
-			<option value="unattached" <?php selected( $filter_attach, 'unattached' ); ?>><?php esc_html_e( 'Unattached', 'lw-img-alt' ); ?></option>
-		</select>
+		<span class="lwia-filter-label"><?php esc_html_e( 'Filter:', 'lw-img-alt' ); ?></span>
 
-		<label for="lwia-filter-mime" class="screen-reader-text">
-			<?php esc_html_e( 'Filter by file type', 'lw-img-alt' ); ?>
-		</label>
-		<select id="lwia-filter-mime" name="mime_type">
-			<option value="all"        <?php selected( $filter_mime, 'all' ); ?>><?php esc_html_e( 'All types', 'lw-img-alt' ); ?></option>
-			<option value="image/jpeg" <?php selected( $filter_mime, 'image/jpeg' ); ?>>JPEG</option>
-			<option value="image/png"  <?php selected( $filter_mime, 'image/png' ); ?>>PNG</option>
-			<option value="image/webp" <?php selected( $filter_mime, 'image/webp' ); ?>>WebP</option>
-			<option value="image/gif"  <?php selected( $filter_mime, 'image/gif' ); ?>>GIF</option>
-			<option value="image/avif" <?php selected( $filter_mime, 'image/avif' ); ?>>AVIF</option>
-		</select>
+		<span class="lwia-filter-group">
+			<label for="lwia-filter-attachment" class="lwia-filter-group-label">
+				<?php esc_html_e( 'Status', 'lw-img-alt' ); ?>
+			</label>
+			<select id="lwia-filter-attachment" name="attachment">
+				<option value="all"        <?php selected( $filter_attach, 'all' ); ?>><?php esc_html_e( 'All images', 'lw-img-alt' ); ?></option>
+				<option value="attached"   <?php selected( $filter_attach, 'attached' ); ?>><?php esc_html_e( 'Attached', 'lw-img-alt' ); ?></option>
+				<option value="unattached" <?php selected( $filter_attach, 'unattached' ); ?>><?php esc_html_e( 'Unattached', 'lw-img-alt' ); ?></option>
+			</select>
+		</span>
+
+		<span class="lwia-filter-group">
+			<label for="lwia-filter-mime" class="lwia-filter-group-label">
+				<?php esc_html_e( 'Type', 'lw-img-alt' ); ?>
+			</label>
+			<select id="lwia-filter-mime" name="mime_type">
+				<option value="all"        <?php selected( $filter_mime, 'all' ); ?>><?php esc_html_e( 'All types', 'lw-img-alt' ); ?></option>
+				<option value="image/jpeg" <?php selected( $filter_mime, 'image/jpeg' ); ?>>JPEG</option>
+				<option value="image/png"  <?php selected( $filter_mime, 'image/png' ); ?>>PNG</option>
+				<option value="image/webp" <?php selected( $filter_mime, 'image/webp' ); ?>>WebP</option>
+				<option value="image/gif"  <?php selected( $filter_mime, 'image/gif' ); ?>>GIF</option>
+				<option value="image/avif" <?php selected( $filter_mime, 'image/avif' ); ?>>AVIF</option>
+			</select>
+		</span>
 
 		<label for="lwia-filter-date-from" class="lwia-label-inline">
 			<?php esc_html_e( 'From', 'lw-img-alt' ); ?>
@@ -74,7 +82,15 @@ defined( 'ABSPATH' ) || exit;
 			value="<?php echo esc_attr( $filter_date_t ); ?>"
 		>
 
-		<?php submit_button( __( 'Scan', 'lw-img-alt' ), 'primary', 'lwia-filter-submit', false ); ?>
+		<button
+			type="submit"
+			name="lwia-filter-submit"
+			id="lwia-filter-submit"
+			class="button"
+			title="<?php esc_attr_e( 'Results update automatically when images are added or edited. Click to force a refresh.', 'lw-img-alt' ); ?>"
+		>
+			<?php esc_html_e( 'Refresh results', 'lw-img-alt' ); ?>
+		</button>
 
 		<?php if ( $filter_attach !== 'all' || $filter_date_f || $filter_date_t || $filter_mime !== 'all' ) : ?>
 			<a href="<?php echo esc_url( admin_url( 'admin.php?page=lw-img-alt' ) ); ?>" class="button">
@@ -83,7 +99,6 @@ defined( 'ABSPATH' ) || exit;
 		<?php endif; ?>
 
 		<?php
-		// Export CSV — links to CSV export action (implemented in a later step).
 		$export_url = wp_nonce_url(
 			add_query_arg(
 				array_filter(
@@ -144,7 +159,6 @@ defined( 'ABSPATH' ) || exit;
 
 	<?php elseif ( empty( $rows ) ) : ?>
 
-		<?php // Edge case: filters active or paged past last page. ?>
 		<div class="notice notice-warning inline">
 			<p>
 				<?php esc_html_e( 'No results on this page.', 'lw-img-alt' ); ?>
@@ -196,7 +210,7 @@ defined( 'ABSPATH' ) || exit;
 
 		<?php
 		// -------------------------------------------------------------------------
-		// Results table
+		// Results table — columns: Preview | Filename | Alt text | Attached to | Uploaded | Details
 		// -------------------------------------------------------------------------
 		?>
 		<table class="wp-list-table widefat fixed striped lwia-scan-table">
@@ -204,12 +218,10 @@ defined( 'ABSPATH' ) || exit;
 				<tr>
 					<th scope="col" class="lwia-col-thumb column-thumb"><?php esc_html_e( 'Preview', 'lw-img-alt' ); ?></th>
 					<th scope="col" class="lwia-col-filename column-primary"><?php esc_html_e( 'Filename', 'lw-img-alt' ); ?></th>
-					<th scope="col" class="lwia-col-date"><?php esc_html_e( 'Uploaded', 'lw-img-alt' ); ?></th>
-					<th scope="col" class="lwia-col-attached"><?php esc_html_e( 'Attached to', 'lw-img-alt' ); ?></th>
-					<th scope="col" class="lwia-col-type"><?php esc_html_e( 'Type', 'lw-img-alt' ); ?></th>
-					<th scope="col" class="lwia-col-dims"><?php esc_html_e( 'Dimensions', 'lw-img-alt' ); ?></th>
-					<th scope="col" class="lwia-col-size"><?php esc_html_e( 'Size', 'lw-img-alt' ); ?></th>
 					<th scope="col" class="lwia-col-alt"><?php esc_html_e( 'Alt text', 'lw-img-alt' ); ?></th>
+					<th scope="col" class="lwia-col-attached"><?php esc_html_e( 'Attached to', 'lw-img-alt' ); ?></th>
+					<th scope="col" class="lwia-col-date"><?php esc_html_e( 'Uploaded', 'lw-img-alt' ); ?></th>
+					<th scope="col" class="lwia-col-details"><?php esc_html_e( 'Details', 'lw-img-alt' ); ?></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -222,11 +234,23 @@ defined( 'ABSPATH' ) || exit;
 					$edit_url      = get_edit_post_link( $attachment_id );
 					$filename      = basename( $row->guid );
 					$date          = mysql2date( get_option( 'date_format' ), $row->post_date );
+
+					// Thumbnail with mime-type icon fallback for SVGs, broken files, etc.
+					$thumb = wp_get_attachment_image( $attachment_id, array( 50, 50 ), false, array( 'class' => 'lwia-thumb-img' ) );
+					if ( ! $thumb ) {
+						$icon_url = wp_mime_type_icon( $row->post_mime_type );
+						if ( $icon_url ) {
+							$thumb = '<img src="' . esc_url( $icon_url ) . '" width="48" height="48" class="lwia-thumb-img lwia-thumb-icon" alt="">';
+						}
+					}
 				?>
-				<tr data-attachment-id="<?php echo esc_attr( (string) $attachment_id ); ?>">
+				<tr data-attachment-id="<?php echo esc_attr( (string) $attachment_id ); ?>" data-filename="<?php echo esc_attr( $filename ); ?>">
 
 					<td class="lwia-col-thumb column-thumb">
-						<?php echo wp_get_attachment_image( $attachment_id, array( 50, 50 ), false, array( 'class' => 'lwia-thumb-img' ) ); ?>
+						<?php
+						// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above
+						echo $thumb;
+						?>
 					</td>
 
 					<td class="lwia-col-filename column-primary">
@@ -241,8 +265,21 @@ defined( 'ABSPATH' ) || exit;
 						</strong>
 					</td>
 
-					<td class="lwia-col-date">
-						<?php echo esc_html( (string) $date ); ?>
+					<td class="lwia-col-alt">
+						<div class="lwia-inline-edit-wrap">
+							<input
+								type="text"
+								class="lwia-alt-input"
+								value=""
+								data-original-alt=""
+								placeholder="<?php echo esc_attr__( 'Enter alt text…', 'lw-img-alt' ); ?>"
+								maxlength="125"
+								aria-label="<?php echo esc_attr__( 'Alt text for this image', 'lw-img-alt' ); ?>"
+							>
+							<span class="lwia-spinner spinner" aria-hidden="true"></span>
+							<span class="lwia-indicator" aria-hidden="true"></span>
+							<span class="lwia-status screen-reader-text" aria-live="polite"></span>
+						</div>
 					</td>
 
 					<td class="lwia-col-attached">
@@ -266,38 +303,20 @@ defined( 'ABSPATH' ) || exit;
 						<?php endif; ?>
 					</td>
 
-					<td class="lwia-col-type">
-						<?php echo esc_html( $row->post_mime_type ); ?>
+					<td class="lwia-col-date">
+						<?php echo esc_html( (string) $date ); ?>
 					</td>
 
-					<td class="lwia-col-dims">
+					<td class="lwia-col-details">
+						<span class="lwia-details-type"><?php echo esc_html( $row->post_mime_type ); ?></span>
 						<?php if ( $width && $height ) : ?>
-							<?php echo esc_html( $width ) . ' &times; ' . esc_html( $height ); ?>
-						<?php else : ?>
-							&mdash;
+							<span class="lwia-details-sep">&bull;</span>
+							<span class="lwia-details-dims"><?php echo esc_html( $width ) . '&times;' . esc_html( $height ); ?></span>
 						<?php endif; ?>
-					</td>
-
-					<td class="lwia-col-size">
-						<?php echo $filesize ? esc_html( size_format( (int) $filesize ) ) : '&mdash;'; ?>
-					</td>
-
-					<td class="lwia-col-alt">
-						<div class="lwia-inline-edit-wrap">
-							<input
-								type="text"
-								class="lwia-alt-input"
-								value=""
-								placeholder="<?php echo esc_attr__( 'Enter alt text\u2026', 'lw-img-alt' ); ?>"
-								maxlength="125"
-								aria-label="<?php echo esc_attr__( 'Alt text for this image', 'lw-img-alt' ); ?>"
-							>
-							<button type="button" class="button button-small lwia-save-btn">
-								<?php esc_html_e( 'Save', 'lw-img-alt' ); ?>
-							</button>
-							<span class="lwia-spinner spinner" aria-hidden="true"></span>
-							<span class="lwia-status" aria-live="polite"></span>
-						</div>
+						<?php if ( $filesize ) : ?>
+							<span class="lwia-details-sep">&bull;</span>
+							<span class="lwia-details-size"><?php echo esc_html( size_format( (int) $filesize ) ); ?></span>
+						<?php endif; ?>
 					</td>
 
 				</tr>

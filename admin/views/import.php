@@ -8,6 +8,7 @@
  *   $import_data  array|null   Transient contents (preview step only):
  *                              { rows[], batch_id, stats{ok,warn,skip,error,total}, errors[] }
  *   $error        string       Error code from a previous failed step, or ''.
+ *   $sample_url   string       URL to download a sample CSV.
  *
  * @package LW_Image_Alt
  */
@@ -16,16 +17,34 @@ defined( 'ABSPATH' ) || exit;
 
 // Error message map.
 $error_messages = array(
-	'no_file'      => __( 'No file was uploaded. Please choose a CSV file and try again.', 'lw-img-alt' ),
-	'invalid_type' => __( 'The uploaded file does not appear to be a CSV. Please upload a .csv file.', 'lw-img-alt' ),
+	'no_file'       => __( 'No file was uploaded. Please choose a CSV file and try again.', 'lw-img-alt' ),
+	'invalid_type'  => __( 'The uploaded file does not appear to be a CSV. Please upload a .csv file.', 'lw-img-alt' ),
 	'upload_failed' => __( 'The file could not be saved on the server. Please try again.', 'lw-img-alt' ),
-	'parse_failed' => __( 'The CSV file could not be parsed. Check the format and required columns (attachment_id, new_alt).', 'lw-img-alt' ),
-	'expired'      => __( 'The import session expired. Please re-upload the CSV file.', 'lw-img-alt' ),
+	'parse_failed'  => __( 'The CSV file could not be parsed. Check the format and required columns (attachment_id, new_alt).', 'lw-img-alt' ),
+	'expired'       => __( 'The import session expired. Please re-upload the CSV file.', 'lw-img-alt' ),
 );
+
+$current_step = ( 'preview' === $step ) ? 2 : 1;
 ?>
 <div class="wrap">
 
-	<h1><?php esc_html_e( 'Import Alt Text', 'lw-img-alt' ); ?></h1>
+	<h1><?php esc_html_e( 'Image Alt — Import', 'lw-img-alt' ); ?></h1>
+
+	<?php
+	// ---- Step indicator ----
+	$steps = array(
+		1 => __( 'Upload', 'lw-img-alt' ),
+		2 => __( 'Preview', 'lw-img-alt' ),
+		3 => __( 'Apply', 'lw-img-alt' ),
+	);
+	?>
+	<ol class="lwia-steps">
+		<?php foreach ( $steps as $num => $label ) : ?>
+		<li class="<?php echo $num === $current_step ? 'is-current' : ( $num < $current_step ? 'is-done' : '' ); ?>">
+			<?php echo esc_html( $label ); ?>
+		</li>
+		<?php endforeach; ?>
+	</ol>
 
 	<?php if ( $error && isset( $error_messages[ $error ] ) ) : ?>
 	<div class="notice notice-error is-dismissible">
@@ -41,8 +60,8 @@ $error_messages = array(
 	<p>
 		<?php esc_html_e( 'Upload a CSV file to bulk-update alt text across your Media Library.', 'lw-img-alt' ); ?>
 		<?php printf(
-			/* translators: %s: link to download a sample CSV */
-			esc_html__( 'Not sure of the format? %s from the Scan screen first.', 'lw-img-alt' ),
+			/* translators: %s: link to scan screen */
+			esc_html__( 'Not sure of the format? %s from the Scan screen first, or download a sample below.', 'lw-img-alt' ),
 			'<a href="' . esc_url( admin_url( 'admin.php?page=lw-img-alt' ) ) . '">'
 			. esc_html__( 'Export a CSV', 'lw-img-alt' )
 			. '</a>'
@@ -77,10 +96,15 @@ $error_messages = array(
 					>
 					<p class="description">
 						<?php printf(
-							/* translators: %d: row limit */
-							esc_html__( 'Maximum %d rows. UTF-8 encoding. BOM optional.', 'lw-img-alt' ),
-							LWIA_CSV_Import::ROW_LIMIT
+							/* translators: %s: formatted row limit */
+							esc_html__( 'Up to %s rows. Save as CSV UTF-8 from Excel or Sheets to avoid encoding issues with special characters (é, £, etc.).', 'lw-img-alt' ),
+							number_format_i18n( LWIA_CSV_Import::ROW_LIMIT )
 						); ?>
+					</p>
+					<p>
+						<a href="<?php echo esc_url( $sample_url ); ?>" class="button button-secondary lwia-sample-csv-btn">
+							<?php esc_html_e( 'Download sample CSV', 'lw-img-alt' ); ?>
+						</a>
 					</p>
 				</td>
 			</tr>
@@ -126,7 +150,7 @@ $error_messages = array(
 			<span class="lwia-stat-skip">
 				<?php printf(
 					/* translators: %d: count */
-					esc_html__( '%d will be skipped (no alt text)', 'lw-img-alt' ),
+					esc_html__( '%d will be skipped', 'lw-img-alt' ),
 					(int) $stats['skip']
 				); ?>
 			</span>
@@ -135,7 +159,7 @@ $error_messages = array(
 			<span class="lwia-stat-error">
 				<?php printf(
 					/* translators: %d: count */
-					esc_html__( '%d errors (attachment not found)', 'lw-img-alt' ),
+					esc_html__( '%d errors', 'lw-img-alt' ),
 					(int) $stats['error']
 				); ?>
 			</span>
@@ -178,7 +202,7 @@ $error_messages = array(
 		<div class="lwia-progress-bar-wrap">
 			<div class="lwia-progress-bar" id="lwia-progress-bar-fill" style="width:0%"></div>
 		</div>
-		<p id="lwia-progress-label"><?php esc_html_e( 'Starting\u2026', 'lw-img-alt' ); ?></p>
+		<p id="lwia-progress-label"><?php esc_html_e( 'Starting…', 'lw-img-alt' ); ?></p>
 	</div>
 
 	<?php // Results panel — populated by JS when apply is done, hidden initially ?>

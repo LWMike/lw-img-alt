@@ -19,6 +19,28 @@
 	line-height: 28px;
 }
 
+.lwia-filter-label {
+	font-size: 13px;
+	font-weight: 600;
+	margin-right: 2px;
+}
+
+/* Visible label above a filter control */
+.lwia-filter-group {
+	display: inline-flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.lwia-filter-group-label {
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+	color: #50575e;
+	line-height: 1;
+}
+
 .lwia-label-inline {
 	font-size: 13px;
 }
@@ -35,14 +57,12 @@
 	margin: 0.5em 0 1em;
 }
 
-/* ---- Scan table ---- */
+/* ---- Scan table — new column order ---- */
 
-.lwia-scan-table .lwia-col-thumb  { width: 66px; }
-.lwia-scan-table .lwia-col-date   { width: 110px; }
-.lwia-scan-table .lwia-col-type   { width: 100px; }
-.lwia-scan-table .lwia-col-dims   { width: 100px; }
-.lwia-scan-table .lwia-col-size   { width: 72px; }
-.lwia-scan-table .lwia-col-alt    { width: 340px; }
+.lwia-scan-table .lwia-col-thumb    { width: 66px; }
+.lwia-scan-table .lwia-col-alt      { width: 300px; }
+.lwia-scan-table .lwia-col-date     { width: 100px; }
+.lwia-scan-table .lwia-col-details  { width: 180px; }
 
 .lwia-thumb-img {
 	width: 50px;
@@ -51,12 +71,36 @@
 	display: block;
 }
 
+/* Mime-type icon fallback — keep consistent sizing but don't crop */
+.lwia-thumb-icon {
+	object-fit: contain;
+	padding: 4px;
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	border-radius: 2px;
+}
+
 .lwia-unattached {
 	color: #787c82;
 	font-style: italic;
 }
 
-/* ---- Inline edit ---- */
+/* Details column — compact multi-value */
+.lwia-col-details {
+	font-size: 11px;
+	color: #50575e;
+	white-space: normal;
+}
+.lwia-details-sep {
+	margin: 0 3px;
+	color: #c3c4c7;
+}
+.lwia-details-dims,
+.lwia-details-size {
+	white-space: nowrap;
+}
+
+/* ---- Inline edit — no save button, auto-save ---- */
 
 .lwia-inline-edit-wrap {
 	display: flex;
@@ -66,36 +110,147 @@
 
 .lwia-alt-input {
 	flex: 1;
-	max-width: 220px;
+	min-width: 0;
 }
 
-/* Override WP's float on .spinner so it sits inline. */
+/* Override WP's float on .spinner so it sits inline */
 .lwia-spinner.spinner {
 	float: none;
 	margin: 0;
 	vertical-align: middle;
+	flex-shrink: 0;
 }
 
-/* ---- Status badge ---- */
-
-.lwia-status {
-	font-size: 12px;
-	font-style: italic;
-	white-space: nowrap;
+/* Tick / cross indicator after auto-save */
+.lwia-indicator {
+	font-size: 16px;
+	line-height: 1;
+	flex-shrink: 0;
+	display: none;
 }
 
-.lwia-status.lwia-success {
+.lwia-indicator.is-saved {
+	display: inline;
 	color: #00a32a;
 }
 
-.lwia-status.lwia-error {
+.lwia-indicator.is-saved::before {
+	content: "✓";
+}
+
+.lwia-indicator.is-error {
+	display: inline;
 	color: #d63638;
+	cursor: help;
+}
+
+.lwia-indicator.is-error::before {
+	content: "✗";
+}
+
+/* Screen-reader-only status (aria-live) */
+.lwia-status.screen-reader-text {
+	/* use WP's built-in .screen-reader-text — leave as-is */
+}
+
+/* ---- Toast notifications ---- */
+
+.lwia-toast-container {
+	position: sticky;
+	top: 32px; /* below WP admin bar */
+	z-index: 9999;
+	pointer-events: none;
+}
+
+.lwia-toast-container .lwia-toast {
+	pointer-events: all;
+	max-width: 520px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+	margin-bottom: 4px;
 }
 
 /* ---- Empty state ---- */
 
 .lwia-empty-state.notice {
 	margin-top: 1em;
+}
+
+/* ---- Muted / empty placeholder text ---- */
+
+.lwia-muted {
+	color: #757575;
+	font-style: italic;
+}
+
+/* ---- Import: step indicator ---- */
+
+.lwia-steps {
+	display: flex;
+	gap: 0;
+	list-style: none;
+	margin: 1em 0 1.5em;
+	padding: 0;
+	counter-reset: lwia-step;
+}
+
+.lwia-steps li {
+	counter-increment: lwia-step;
+	display: flex;
+	align-items: center;
+	font-size: 13px;
+	color: #787c82;
+	position: relative;
+}
+
+/* Connector line between steps */
+.lwia-steps li + li::before {
+	content: "";
+	display: inline-block;
+	width: 28px;
+	height: 1px;
+	background: #c3c4c7;
+	margin: 0 8px;
+	flex-shrink: 0;
+}
+
+/* Step number pill */
+.lwia-steps li::after {
+	content: counter(lwia-step);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	border-radius: 50%;
+	border: 2px solid #c3c4c7;
+	background: #fff;
+	font-size: 11px;
+	font-weight: 700;
+	margin-right: 6px;
+	order: -1;
+	flex-shrink: 0;
+}
+
+.lwia-steps li.is-done {
+	color: #00a32a;
+}
+
+.lwia-steps li.is-done::after {
+	content: "✓";
+	border-color: #00a32a;
+	background: #00a32a;
+	color: #fff;
+}
+
+.lwia-steps li.is-current {
+	color: #1d2327;
+	font-weight: 600;
+}
+
+.lwia-steps li.is-current::after {
+	border-color: #2271b1;
+	background: #2271b1;
+	color: #fff;
 }
 
 /* ---- Import: progress bar ---- */
@@ -112,7 +267,7 @@
 
 .lwia-progress-bar {
 	height: 100%;
-	background: #2271b1; /* WP admin blue */
+	background: #2271b1;
 	border-radius: 3px;
 	transition: width 0.25s ease;
 	min-width: 0;
@@ -126,9 +281,9 @@
 
 /* ---- Import: preview table status colours ---- */
 
-tr.lwia-row-status-error   { background: #fce8e8; }
-tr.lwia-row-status-warn    { background: #fffbe5; }
-tr.lwia-row-status-skip    { opacity: 0.6; }
+tr.lwia-row-status-error { background: #fce8e8; }
+tr.lwia-row-status-warn  { background: #fffbe5; }
+tr.lwia-row-status-skip  { opacity: 0.6; }
 
 .lwia-status-badge {
 	display: inline-block;
@@ -155,6 +310,12 @@ tr.lwia-row-status-skip    { opacity: 0.6; }
 .lwia-stat-skip  { color: #646970; font-weight: 600; }
 .lwia-stat-error { color: #8b0000; font-weight: 600; }
 
+/* ---- Import: sample CSV button ---- */
+
+.lwia-sample-csv-btn {
+	margin-top: 4px;
+}
+
 /* ---- Log / Undo: source badge ---- */
 
 .lwia-source-badge {
@@ -171,6 +332,32 @@ tr.lwia-row-status-skip    { opacity: 0.6; }
 .lwia-source-batch  { background: #e8f5e9; color: #1b5e20; }
 .lwia-source-undo   { background: #fce8e8; color: #8b0000; }
 
+/* ---- Log: attachment column with thumbnail ---- */
+
+.lwia-log-attach-wrap {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.lwia-log-thumb {
+	width: 40px;
+	height: 40px;
+	object-fit: cover;
+	display: block;
+	flex-shrink: 0;
+	border-radius: 2px;
+}
+
+/* ---- Log: column widths ---- */
+
+.lwia-log-col-attach { width: 120px; }
+.lwia-log-col-date   { width: 130px; }
+.lwia-log-col-alt    { /* auto — takes remaining space */ }
+.lwia-log-col-source { width: 80px; }
+.lwia-log-col-user   { width: 110px; }
+.lwia-log-col-batch  { width: 110px; }
+
 /* ---- Log: truncate long alt text cells ---- */
 
 .lwia-log-table .lwia-log-alt {
@@ -180,8 +367,71 @@ tr.lwia-row-status-skip    { opacity: 0.6; }
 	white-space: nowrap;
 }
 
-/* ---- Undo: form inline with table cell ---- */
+/* ---- Log: batch ID copy button ---- */
+
+.lwia-batch-copy {
+	background: none;
+	border: none;
+	padding: 0;
+	cursor: pointer;
+	text-decoration: none;
+	color: inherit;
+}
+
+.lwia-batch-copy:hover code {
+	color: #2271b1;
+}
+
+.lwia-batch-filter-link {
+	margin-left: 4px;
+	text-decoration: none;
+	font-size: 14px;
+	opacity: 0.5;
+}
+
+.lwia-batch-filter-link:hover {
+	opacity: 1;
+}
+
+/* ---- Undo: danger button ---- */
+
+.button-danger,
+.button-danger:visited {
+	background: #d63638;
+	border-color: #b32d2e;
+	color: #fff;
+	text-decoration: none;
+}
+
+.button-danger:hover,
+.button-danger:focus {
+	background: #b32d2e;
+	border-color: #96292a;
+	color: #fff;
+	box-shadow: 0 0 0 1px #96292a;
+}
+
+.button-danger:active {
+	background: #96292a;
+	border-color: #7d2021;
+}
+
+/* ---- Undo: actions cell layout ---- */
+
+.lwia-undo-table td:last-child {
+	white-space: nowrap;
+	display: flex;
+	gap: 6px;
+	align-items: center;
+}
+
+.lwia-view-details-btn {
+	/* standard secondary button — inherits .button */
+}
+
+/* ---- Undo / Log: form inline with table cell ---- */
 
 .lwia-undo-form {
 	margin: 0;
+	display: inline;
 }

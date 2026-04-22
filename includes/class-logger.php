@@ -164,6 +164,39 @@ class LWIA_Logger {
 			$conditions[] = $wpdb->prepare( 'batch_id = %s', sanitize_text_field( $args['batch_id'] ) );
 		}
 
+		if ( ! empty( $args['date_from'] ) ) {
+			$conditions[] = $wpdb->prepare( 'created_at >= %s', sanitize_text_field( $args['date_from'] ) . ' 00:00:00' );
+		}
+
+		if ( ! empty( $args['date_to'] ) ) {
+			$conditions[] = $wpdb->prepare( 'created_at <= %s', sanitize_text_field( $args['date_to'] ) . ' 23:59:59' );
+		}
+
 		return $conditions;
+	}
+
+	/**
+	 * Return distinct users who have at least one log entry.
+	 *
+	 * @return array[] Each element: { id: int, name: string }.
+	 */
+	public static function get_distinct_users(): array {
+		global $wpdb;
+
+		$table = $wpdb->prefix . 'lwia_log';
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$user_ids = $wpdb->get_col( "SELECT DISTINCT user_id FROM {$table} ORDER BY user_id ASC" );
+
+		$users = array();
+		foreach ( (array) $user_ids as $uid ) {
+			$user    = get_userdata( (int) $uid );
+			$users[] = array(
+				'id'   => (int) $uid,
+				'name' => $user ? $user->display_name : '#' . $uid,
+			);
+		}
+
+		return $users;
 	}
 }
