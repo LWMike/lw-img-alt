@@ -65,12 +65,18 @@
 				}
 			}
 		} )
-		.fail( function () {
+		.fail( function ( jqXHR ) {
 			$spinner.removeClass( 'is-active' );
 			$btn.data( 'generating', false ).prop( 'disabled', false ).text( lwiaAI.generateBtn );
 
+			var json = jqXHR.responseJSON;
+			var msg  = ( json && json.data && json.data.message ) ? json.data.message : lwiaAI.generateFailed;
+			if ( json && json.data && json.data.rate_limit ) {
+				msg = lwiaAI.rateLimited;
+			}
+
 			if ( typeof window.lwiaShowToast === 'function' ) {
-				window.lwiaShowToast( lwiaAI.generateFailed, 'error', false );
+				window.lwiaShowToast( msg, 'error', false );
 			}
 		} );
 	} );

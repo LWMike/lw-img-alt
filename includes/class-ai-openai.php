@@ -216,7 +216,7 @@ class LWIA_AI_OpenAI extends LWIA_AI_Provider {
 		$status->succeeded         = (int) ( $data['request_counts']['completed']   ?? 0 );
 		$status->errored           = (int) ( $data['request_counts']['failed']      ?? 0 );
 		$status->processing        = (int) ( $data['request_counts']['in_progress'] ?? 0 );
-		$status->results_url       = (string) ( $data['output_file_id']             ?? '' );
+		$status->results_url       = (string) ( $data['output_file_id'] ?? $data['error_file_id'] ?? '' );
 
 		return $status;
 	}
@@ -285,7 +285,11 @@ class LWIA_AI_OpenAI extends LWIA_AI_Provider {
 				$total_out += (int) ( $item['response']['body']['usage']['completion_tokens'] ?? 0 );
 				$count++;
 			} else {
-				$result->error = (string) ( $item['error']['message'] ?? __( 'Unknown error', 'lw-img-alt' ) );
+				$result->error = (string) (
+					$item['response']['body']['error']['message']
+					?? $item['error']['message']
+					?? __( 'Unknown error', 'lw-img-alt' )
+				);
 			}
 
 			if ( $custom_id ) {

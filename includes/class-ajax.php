@@ -221,6 +221,14 @@ class LWIA_Ajax {
 			);
 		}
 
+		$supported_mimes = array( 'image/jpeg', 'image/png', 'image/gif', 'image/webp' );
+		if ( ! in_array( $post->post_mime_type, $supported_mimes, true ) ) {
+			wp_send_json_error(
+				array( 'message' => esc_html__( 'This image format is not supported by the AI provider. Only JPEG, PNG, GIF, and WebP images can be processed.', 'lw-img-alt' ) ),
+				422
+			);
+		}
+
 		$image_url    = wp_get_attachment_image_url( $attachment_id, 'large' );
 		if ( ! $image_url ) {
 			$image_url = (string) $post->guid;

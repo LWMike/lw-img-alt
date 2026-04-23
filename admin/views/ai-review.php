@@ -90,6 +90,20 @@ $error   = isset( $_GET['error'] )   ? sanitize_key( wp_unslash( $_GET['error'] 
 			?>
 		</p>
 
+		<?php if ( 0 === $total ) : ?>
+		<div class="notice notice-warning inline">
+			<p>
+				<?php esc_html_e( 'No results were retrieved — this can happen when all individual requests failed (e.g. the images were not publicly accessible). Click Re-fetch to try downloading the results again.', 'lw-img-alt' ); ?>
+			</p>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
+				<?php wp_nonce_field( 'lwia_ai_refetch' ); ?>
+				<input type="hidden" name="action"  value="lwia_ai_refetch">
+				<input type="hidden" name="job_id"  value="<?php echo esc_attr( $job_id ); ?>">
+				<button type="submit" class="button"><?php esc_html_e( 'Re-fetch results', 'lw-img-alt' ); ?></button>
+			</form>
+		</div>
+		<?php endif; ?>
+
 		<?php
 		$pagination = paginate_links( array(
 			'base'      => esc_url_raw( add_query_arg( array( 'paged' => '%#%', 'job_id' => urlencode( $job_id ) ), admin_url( 'admin.php?page=lwia-ai-review' ) ) ),

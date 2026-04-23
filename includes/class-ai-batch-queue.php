@@ -218,6 +218,38 @@ class LWIA_AI_Batch_Queue {
 		return get_transient( 'lwia_ai_results_' . $local_id );
 	}
 
+	/**
+	 * Re-poll the vendor API for a completed job and refresh the results transient.
+	 * Used when the original retrieval silently failed (e.g. all requests errored
+	 * and output_file_id was null at the time of the first poll).
+	 *
+	 * @param string $local_id
+	 * @return bool  True on success (even if all results are errors), false on failure.
+	 */
+	public static function refetch_results( string $local_id ): bool {
+		$job = self::get_job( $local_id );
+		if ( ! $job || 'complete' !== ( $job['status'] ?? '' ) ) {
+			return false;
+		}
+
+		$vendor_batch_id = (string) ( $job['vendor_batch_id'] ?? '' );
+		if ( ! $vendor_batch_id ) {
+			return false;
+		}
+
+		$provider = self::get_provider();
+		if ( ! $provider ) {
+			return false;
+		}
+
+		$status      = $provider->poll_batch( $vendor_batch_id );
+		$retrieve_id = $status->results_url ?: $vendor_batch_id;
+		$results     = $provider->retrieve_batch( $retrieve_id );
+
+		set_transient( 'lwia_ai_results_' . $local_id, $results, self::RESULTS_TTL );
+		return true;
+	}
+
 	// -------------------------------------------------------------------------
 	// Provider factory
 	// -------------------------------------------------------------------------

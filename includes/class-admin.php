@@ -37,7 +37,8 @@ class LWIA_Admin {
 		add_action( 'admin_post_lwia_undo_batch',     array( $this, 'handle_undo_batch' ) );
 		add_action( 'admin_post_lwia_ai_settings',    array( $this, 'handle_ai_settings' ) );
 		add_action( 'admin_post_lwia_ai_batch_start', array( $this, 'handle_ai_batch_start' ) );
-		add_action( 'admin_post_lwia_ai_batch_apply', array( $this, 'handle_ai_batch_apply' ) );
+		add_action( 'admin_post_lwia_ai_batch_apply',   array( $this, 'handle_ai_batch_apply' ) );
+		add_action( 'admin_post_lwia_ai_refetch',       array( $this, 'handle_ai_refetch' ) );
 
 		// Allow WordPress to persist per-page screen options for our screens.
 		add_filter( 'set_screen_option_lwia_scan_per_page',    fn( $s, $o, $v ) => (int) $v, 10, 3 );
@@ -852,8 +853,12 @@ class LWIA_Admin {
 			exit;
 		}
 
-		$images = array();
+		$supported_mimes = array( 'image/jpeg', 'image/png', 'image/gif', 'image/webp' );
+		$images          = array();
 		foreach ( $rows as $row ) {
+			if ( ! in_array( $row->post_mime_type, $supported_mimes, true ) ) {
+				continue;
+			}
 			$url = wp_get_attachment_image_url( (int) $row->ID, 'large' );
 			if ( ! $url ) {
 				$url = (string) $row->guid;
@@ -950,6 +955,37 @@ class LWIA_Admin {
 			array( 'applied' => $applied, 'skipped' => $skipped, 'errors' => $errors ),
 			$redirect_base
 		) );
+		exit;
+	}
+
+	/**
+	 * Re-fetch batch results from the vendor API and refresh the transient.
+	 * Handles cases where the original retrieval silently failed (e.g. all
+	 * individual requests errored and output_file_id was null).
+	 */
+	public function handle_ai_refetch(): void {
+		check_admin_referer( 'lwia_ai_refetch' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'lw-img-alt' ) );
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- checked above
+		$job_id = isset( $_POST['job_id'] ) ? sanitize_text_field( wp_unslash( $_POST['job_id'] ) ) : '';
+
+		$redirect_base = add_query_arg(
+			array( 'page' => 'lwia-ai-review', 'job_id' => urlencode( $job_id ) ),
+			admin_url( 'admin.php' )
+		);
+
+		if ( ! $job_id ) {
+			wp_redirect( add_query_arg( 'error', 'expired', $redirect_base ) );
+			exit;
+		}
+
+		LWIA_AI_Batch_Queue::refetch_results( $job_id );
+
+		wp_redirect( $redirect_base );
 		exit;
 	}
 }
